@@ -82,6 +82,7 @@
         v-if="activeTab === 'configure'"
         :selected-agent="selectedAgent"
         :available-tools="availableTools"
+        :available-skills="availableSkills"
         :category-options="categoryOptions"
         :save-status="saveStatus"
         @save-configuration="emit('save-configuration', $event)"
@@ -118,6 +119,10 @@ const props = defineProps({
     required: true,
   },
   availableTools: {
+    type: Array,
+    default: () => [],
+  },
+  availableSkills: {
     type: Array,
     default: () => [],
   },

@@ -248,6 +248,7 @@
           :format-uptime="formatUptime"
           :available-tools="availableTools"
           :available-workflows="availableWorkflows"
+          :available-skills="availableSkills"
           :category-options="categoryOptions"
           @toggle-details-expanded="toggleDetailsExpanded"
           @close-details="closeDetails"
@@ -658,9 +659,10 @@ export default {
 
       // Background refresh
       Promise.all([
-        // Fetch agents, goals, and tools/workflows concurrently
+        // Fetch agents, goals, tools/workflows, and skills concurrently
         refreshAgents(),
         fetchToolsAndWorkflows(),
+        fetchSkills(),
         fetchGoals(),
       ]).then(async () => {
         terminalLines.value.push('Data loaded.'); // Confirmation
@@ -759,6 +761,7 @@ export default {
 
     const availableTools = ref([]);
     const availableWorkflows = ref([]);
+    const availableSkills = ref([]);
 
     // Fetch tools and workflows (like AgentForge)
     const fetchToolsAndWorkflows = async (force = false) => {
@@ -768,6 +771,17 @@ export default {
         availableWorkflows.value = store.getters['workflows/allWorkflows'] || [];
       } catch (e) {
         terminalLines.value.push(`[Agents] Error loading tools/workflows: ${e.message}`);
+      }
+    };
+
+    // Fetch skills from backend
+    const fetchSkills = async () => {
+      try {
+        const response = await fetch('/api/skills');
+        const data = await response.json();
+        availableSkills.value = data.skills || [];
+      } catch (e) {
+        terminalLines.value.push(`[Agents] Error loading skills: ${e.message}`);
       }
     };
 

@@ -86,6 +86,22 @@
         </h4>
         <ListWithSearch :items="availableTools" v-model="agentConfig.tools" label-key="title" id-key="id" placeholder="Search tools..." />
       </div>
+
+      <!-- Assign Skills -->
+      <div class="config-group">
+        <h4 class="section-title">
+          <i class="fas fa-graduation-cap"></i>
+          Assign Skills
+        </h4>
+        <p class="input-description" style="margin-bottom: 10px;">Skills bundle expertise (instructions) with required tools</p>
+        <ListWithSearch :items="availableSkills" v-model="agentConfig.skills" label-key="name" id-key="id" placeholder="Search skills..." />
+        <div v-if="skillToolsAdded.length > 0" class="skill-tools-notice">
+          <i class="fas fa-info-circle"></i>
+          Auto-added tools from skills:
+          <span v-for="tool in skillToolsAdded" :key="tool" class="tool-badge">{{ tool }}</span>
+        </div>
+      </div>
+
       <!-- Assign Workflows -->
       <!-- <div class="config-group half-width">
           <h4 class="section-title">
@@ -210,6 +226,10 @@ const props = defineProps({
     type: Array,
     default: () => [],
   },
+  availableSkills: {
+    type: Array,
+    default: () => [],
+  },
   // availableWorkflows: {
   //   type: Array,
   //   default: () => [],
@@ -237,6 +257,7 @@ function initializeAgentConfig(agent) {
     model: agent.model || '',
     tools: agent.assignedTools ? [...agent.assignedTools] : [],
     workflows: agent.assignedWorkflows ? [...agent.assignedWorkflows] : [],
+    skills: agent.assignedSkills ? [...agent.assignedSkills] : [],
   };
 }
 
@@ -266,6 +287,13 @@ const modelOptions = computed(() => [
     label: model,
   })),
 ]);
+
+// Calculate auto-added tools from skills
+const skillToolsAdded = computed(() => {
+  const selectedSkills = props.availableSkills.filter(s => agentConfig.value.skills.includes(s.id));
+  const tools = selectedSkills.flatMap(s => s.requiredTools || []);
+  return [...new Set(tools)]; // Dedupe
+});
 
 watch(
   () => props.selectedAgent,
@@ -369,6 +397,7 @@ const saveConfiguration = async () => {
       avatar: agentConfig.value.avatar !== null ? agentConfig.value.avatar : props.selectedAgent.avatar,
       assignedTools: agentConfig.value.tools,
       assignedWorkflows: agentConfig.value.workflows,
+      assignedSkills: agentConfig.value.skills,
       // Include other config fields if needed by the parent component
       tickSpeed: agentConfig.value.tickSpeed,
       tokenBudget: agentConfig.value.tokenBudget,
@@ -680,5 +709,34 @@ textarea.input {
 .config-group.half-width {
   flex: 1 1 0;
   min-width: 0;
+}
+
+.skill-tools-notice {
+  margin-top: 12px;
+  padding: 10px 12px;
+  background: rgba(25, 239, 131, 0.1);
+  border-left: 3px solid var(--color-green);
+  border-radius: 4px;
+  font-size: 13px;
+  color: var(--color-text-secondary);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.skill-tools-notice i {
+  color: var(--color-green);
+}
+
+.skill-tools-notice .tool-badge {
+  display: inline-block;
+  padding: 3px 8px;
+  background: rgba(25, 239, 131, 0.2);
+  border-radius: 4px;
+  font-size: 12px;
+  font-family: monospace;
+  color: var(--color-green);
+  margin-left: 4px;
 }
 </style>
