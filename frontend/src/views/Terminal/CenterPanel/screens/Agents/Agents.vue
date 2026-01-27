@@ -777,7 +777,7 @@ export default {
     // Fetch skills from backend
     const fetchSkills = async () => {
       try {
-        const response = await fetch('/api/skills');
+        const response = await fetch(`${API_CONFIG.BASE_URL}/skills`);
         const data = await response.json();
         availableSkills.value = data.skills || [];
       } catch (e) {
@@ -1677,6 +1677,8 @@ export default {
       onAgentTabSelect,
       availableTools,
       availableWorkflows,
+      availableSkills,
+      fetchSkills,
       onAllSelected,
       onCategorySelected,
       mainAgentCategories,
