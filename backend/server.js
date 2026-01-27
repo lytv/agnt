@@ -12,6 +12,9 @@ import { Server as SocketIOServer } from 'socket.io';
 import PluginInstaller from './src/plugins/PluginInstaller.js';
 import PluginManager from './src/plugins/PluginManager.js';
 
+// Import skills system
+import { SkillRegistry } from './src/services/skills/SkillRegistry.js';
+
 // Import your API routes
 import UserRoutes from './src/routes/UserRoutes.js';
 import StreamRoutes from './src/routes/StreamRoutes.js';
@@ -30,6 +33,7 @@ import NPMRoutes from './src/routes/NPMRoutes.js';
 import WebhookRoutes from './src/routes/WebhookRoutes.js';
 import SpeechRoutes from './src/routes/SpeechRoutes.js';
 import PluginRoutes from './src/routes/PluginRoutes.js';
+import SkillRoutes from './src/routes/SkillRoutes.js';
 import WorkflowProcessBridge from './src/workflow/WorkflowProcessBridge.js';
 import { sessionMiddleware } from './src/routes/Middleware.js';
 
@@ -114,6 +118,7 @@ app.use('/api/npm', NPMRoutes);
 app.use('/api/webhooks', WebhookRoutes);
 app.use('/api/speech', SpeechRoutes);
 app.use('/api/plugins', PluginRoutes);
+app.use('/api/skills', SkillRoutes);
 app.get('/api/health', (req, res) => res.status(200).json({ status: 'OK' }));
 
 // Version endpoint - reads dynamically from package.json
@@ -272,6 +277,16 @@ function startServer() {
         console.log('Plugin initialization complete');
       } catch (error) {
         console.error('Plugin initialization error (non-fatal):', error);
+      }
+
+      // Initialize Skills Registry
+      console.log('Initializing Skills Registry...');
+      try {
+        const skillRegistry = SkillRegistry.getInstance();
+        await skillRegistry.initialize();
+        console.log('Skills Registry initialized');
+      } catch (error) {
+        console.error('Skills Registry initialization error (non-fatal):', error);
       }
 
       // Spawn workflow process AFTER plugins are ready

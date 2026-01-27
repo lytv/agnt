@@ -126,6 +126,7 @@ class AgentService {
           model: agent.model,
           assignedTools: agent.assignedTools || [],
           assignedWorkflows: agent.assignedWorkflows || [],
+          assignedSkills: agent.assignedSkills || [],
           resourceId: resource.id,
           creditsUsed: resource.credits_used || 0,
           creditLimit: resource.credit_limit || 0,
@@ -151,9 +152,10 @@ class AgentService {
       }
 
       if (agent.created_by === req.user.userId) {
-        // Always include assignedTools and assignedWorkflows as arrays
+        // Always include assignedTools, assignedWorkflows, and assignedSkills as arrays
         agent.assignedTools = agent.assignedTools || [];
         agent.assignedWorkflows = agent.assignedWorkflows || [];
+        agent.assignedSkills = agent.assignedSkills || [];
         // Include provider and model fields
         agent.provider = agent.provider || '';
         agent.model = agent.model || '';
@@ -269,9 +271,42 @@ ${CRITICAL_TOOL_RESPONSE_RULES}
 
 Remember: You are ${agent.name} with specialized expertise. Use your assigned tools strategically to provide exceptional assistance while maintaining your unique personality and focus area.`;
 
+    // Load and inject assigned skills
+    let enhancedSystemPrompt = systemPrompt;
+    if (agent.assignedSkills && agent.assignedSkills.length > 0) {
+      try {
+        const { SkillRegistry } = await import('./skills/SkillRegistry.js');
+        const registry = SkillRegistry.getInstance();
+
+        const skills = agent.assignedSkills
+          .map(skillId => registry.getSkill(skillId))
+          .filter(Boolean); // Remove null/undefined (skills not found)
+
+        if (skills.length > 0) {
+          // Inject skill instructions into system prompt
+          skills.forEach(skill => {
+            enhancedSystemPrompt += `\n\n## Skill: ${skill.name}\n\n${skill.instructions}`;
+          });
+
+          // Auto-add required tools from skills
+          const skillTools = skills.flatMap(skill => skill.requiredTools || []);
+          skillTools.forEach(toolName => {
+            if (toolSchemaMap.has(toolName) && !availableTools.some(t => t.function.name === toolName)) {
+              availableTools.push(toolSchemaMap.get(toolName));
+            }
+          });
+
+          console.log(`[AgentService] Injected ${skills.length} skills, added ${skillTools.length} tools for agent ${agent.id}`);
+        }
+      } catch (error) {
+        console.error('[AgentService] Error loading skills:', error);
+        // Don't fail - continue without skills
+      }
+    }
+
     return {
       agentContext: {
-        systemPrompt,
+        systemPrompt: enhancedSystemPrompt,
         availableTools,
         toolExecutorMap,
       },
