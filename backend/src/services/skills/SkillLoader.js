@@ -22,10 +22,15 @@ export class SkillLoader {
       throw new Error('Missing required fields: name, description');
     }
 
+    let requiredTools = frontmatter.requiredTools || frontmatter['allowed-tools'] || [];
+    if (typeof requiredTools === 'string') {
+      requiredTools = requiredTools.split(',').map(t => t.trim());
+    }
+
     return {
       name: frontmatter.name,
       description: frontmatter.description,
-      requiredTools: frontmatter.requiredTools || [],
+      requiredTools,
       instructions: instructions.trim(),
     };
   }

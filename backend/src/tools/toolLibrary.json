@@ -12,7 +12,10 @@
           "type": "string",
           "inputType": "select",
           "inputSize": "half",
-          "options": ["Yes", "No"],
+          "options": [
+            "Yes",
+            "No"
+          ],
           "default": "Yes",
           "description": "Fire the trigger immediately when the workflow starts"
         },
@@ -20,14 +23,26 @@
           "type": "string",
           "inputType": "select",
           "inputSize": "half",
-          "options": ["Interval", "Specific Time"],
+          "options": [
+            "Interval",
+            "Specific Time"
+          ],
           "default": "Interval",
           "description": "Choose between interval-based or specific time scheduling"
         },
         "schedule": {
           "type": "string",
           "inputType": "select",
-          "options": ["Every Minute", "Every 5 Minutes", "Every 15 Minutes", "Every 30 Minutes", "Hourly", "Daily", "Weekly", "Monthly"],
+          "options": [
+            "Every Minute",
+            "Every 5 Minutes",
+            "Every 15 Minutes",
+            "Every 30 Minutes",
+            "Hourly",
+            "Daily",
+            "Weekly",
+            "Monthly"
+          ],
           "description": "Select the interval for the timer",
           "conditional": {
             "field": "scheduleType",
@@ -48,7 +63,15 @@
           "type": "array",
           "inputType": "checkbox",
           "inputSize": "half",
-          "options": ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"],
+          "options": [
+            "Monday",
+            "Tuesday",
+            "Wednesday",
+            "Thursday",
+            "Friday",
+            "Saturday",
+            "Sunday"
+          ],
           "description": "Select the days to run the trigger at the specific time",
           "conditional": {
             "field": "scheduleType",
@@ -69,7 +92,6 @@
       "type": "webhook-listener",
       "icon": "connect",
       "description": "This trigger node listens for incoming webhook requests and triggers the workflow when a request is received.",
-      "requiresPro": true,
       "parameters": {
         "webhookUrl": {
           "type": "string",
@@ -80,13 +102,24 @@
         "method": {
           "type": "string",
           "inputType": "select",
-          "options": ["POST", "GET", "PUT", "PATCH", "DELETE"],
+          "options": [
+            "POST",
+            "GET",
+            "PUT",
+            "PATCH",
+            "DELETE"
+          ],
           "description": "The HTTP method to accept"
         },
         "authType": {
           "type": "string",
           "inputType": "select",
-          "options": ["None", "Basic", "Bearer", "Webhook"],
+          "options": [
+            "None",
+            "Basic",
+            "Bearer",
+            "Webhook"
+          ],
           "description": "The type of authentication"
         },
         "authToken": {
@@ -95,7 +128,10 @@
           "description": "Authentication token for Bearer or Webhook authentication",
           "conditional": {
             "field": "authType",
-            "value": ["Bearer", "Webhook"]
+            "value": [
+              "Bearer",
+              "Webhook"
+            ]
           }
         },
         "username": {
@@ -119,7 +155,10 @@
         "responseMode": {
           "type": "string",
           "inputType": "select",
-          "options": ["Immediate", "Wait for Result"],
+          "options": [
+            "Immediate",
+            "Wait for Result"
+          ],
           "description": "Whether to return 200 OK immediately or wait for the workflow to complete and return the result",
           "default": "Immediate"
         },
@@ -172,12 +211,14 @@
       "type": "receive-email",
       "icon": "inbox",
       "description": "This trigger node listens for incoming emails and triggers the workflow when a new email is received. Returns the received email details like from address, subject, body, etc.",
-      "requiresPro": true,
       "parameters": {
         "emailConfig": {
           "type": "string",
           "inputType": "select",
-          "options": ["Built-in Email", "Custom IMAP"],
+          "options": [
+            "Built-in Email",
+            "Custom IMAP"
+          ],
           "description": "Choose between built-in email or custom IMAP settings",
           "default": "Built-in Email"
         },
@@ -275,7 +316,11 @@
           "type": "string",
           "inputType": "select",
           "inputSize": "full",
-          "options": ["Text Generation", "Vision (Image → Text)", "Image Generation"],
+          "options": [
+            "Text Generation",
+            "Vision (Image → Text)",
+            "Image Generation"
+          ],
           "default": "Text Generation",
           "description": "Choose the operation mode: generate text, analyze images, or create images"
         },
@@ -332,7 +377,11 @@
         "imageOperation": {
           "type": "string",
           "inputType": "select",
-          "options": ["Generate", "Edit", "Variation"],
+          "options": [
+            "Generate",
+            "Edit",
+            "Variation"
+          ],
           "default": "Generate",
           "description": "Type of image operation (only OpenAI supports Edit/Variation)",
           "conditional": {
@@ -350,7 +399,10 @@
           "description": "Base64 image for editing or creating variations (OpenAI only)",
           "conditional": {
             "field": "imageOperation",
-            "value": ["Edit", "Variation"],
+            "value": [
+              "Edit",
+              "Variation"
+            ],
             "and": {
               "field": "provider",
               "value": "OpenAI"
@@ -370,7 +422,13 @@
         "imageSize": {
           "type": "string",
           "inputType": "select",
-          "options": ["256x256", "512x512", "1024x1024", "1792x1024", "1024x1792"],
+          "options": [
+            "256x256",
+            "512x512",
+            "1024x1024",
+            "1792x1024",
+            "1024x1792"
+          ],
           "default": "1024x1024",
           "description": "Image size (OpenAI only)",
           "conditional": {
@@ -385,7 +443,10 @@
         "imageQuality": {
           "type": "string",
           "inputType": "select",
-          "options": ["standard", "hd"],
+          "options": [
+            "standard",
+            "hd"
+          ],
           "default": "standard",
           "description": "Image quality (OpenAI DALL-E 3 only)",
           "conditional": {
@@ -400,7 +461,10 @@
         "imageStyle": {
           "type": "string",
           "inputType": "select",
-          "options": ["vivid", "natural"],
+          "options": [
+            "vivid",
+            "natural"
+          ],
           "default": "vivid",
           "description": "Image style (OpenAI DALL-E 3 only)",
           "conditional": {
@@ -415,7 +479,18 @@
         "aspectRatio": {
           "type": "string",
           "inputType": "select",
-          "options": ["1:1", "2:3", "3:2", "3:4", "4:3", "4:5", "5:4", "9:16", "16:9", "21:9"],
+          "options": [
+            "1:1",
+            "2:3",
+            "3:2",
+            "3:4",
+            "4:3",
+            "4:5",
+            "5:4",
+            "9:16",
+            "16:9",
+            "21:9"
+          ],
           "default": "1:1",
           "description": "Aspect ratio (Gemini only)",
           "conditional": {
@@ -430,7 +505,11 @@
         "imageResolution": {
           "type": "string",
           "inputType": "select",
-          "options": ["1K", "2K", "4K"],
+          "options": [
+            "1K",
+            "2K",
+            "4K"
+          ],
           "default": "1K",
           "description": "Image resolution (Gemini Pro only)",
           "conditional": {
@@ -445,7 +524,9 @@
         "useGoogleSearch": {
           "type": "string",
           "inputType": "checkbox",
-          "options": ["true"],
+          "options": [
+            "true"
+          ],
           "default": "false",
           "description": "Ground generation with real-time Google Search data (Gemini only)",
           "conditional": {
@@ -460,7 +541,10 @@
         "responseFormat": {
           "type": "string",
           "inputType": "select",
-          "options": ["url", "b64_json"],
+          "options": [
+            "url",
+            "b64_json"
+          ],
           "default": "b64_json",
           "description": "Response format: URL or base64 JSON (OpenAI/Grok only)",
           "conditional": {
@@ -475,7 +559,10 @@
           "description": "The maximum number of tokens to generate",
           "conditional": {
             "field": "mode",
-            "value": ["Text Generation", "Vision (Image → Text)"]
+            "value": [
+              "Text Generation",
+              "Vision (Image → Text)"
+            ]
           }
         },
         "temperature": {
@@ -485,18 +572,26 @@
           "description": "Controls randomness in the output (0.0 to 1.0)",
           "conditional": {
             "field": "mode",
-            "value": ["Text Generation", "Vision (Image → Text)"]
+            "value": [
+              "Text Generation",
+              "Vision (Image → Text)"
+            ]
           }
         },
         "parseJson": {
           "type": "string",
           "inputType": "checkbox",
-          "options": ["true"],
+          "options": [
+            "true"
+          ],
           "description": "Parse the generated text as JSON",
           "default": "false",
           "conditional": {
             "field": "mode",
-            "value": ["Text Generation", "Vision (Image → Text)"]
+            "value": [
+              "Text Generation",
+              "Vision (Image → Text)"
+            ]
           }
         }
       },
@@ -604,14 +699,25 @@
           "type": "string",
           "inputType": "select",
           "inputSize": "half",
-          "options": ["GET", "POST", "PUT", "DELETE", "PATCH"],
+          "options": [
+            "GET",
+            "POST",
+            "PUT",
+            "DELETE",
+            "PATCH"
+          ],
           "description": "The HTTP method for the request"
         },
         "authType": {
           "type": "string",
           "inputType": "select",
           "inputSize": "half",
-          "options": ["None", "Basic", "Bearer", "Webhook"],
+          "options": [
+            "None",
+            "Basic",
+            "Bearer",
+            "Webhook"
+          ],
           "description": "The type of authentication"
         },
         "query": {
@@ -630,7 +736,12 @@
           "description": "Optional data to send with the request. Often JSON for APIs, but could be other formats depending on the API requirements.",
           "conditional": {
             "field": "method",
-            "value": ["POST", "PUT", "DELETE", "PATCH"]
+            "value": [
+              "POST",
+              "PUT",
+              "DELETE",
+              "PATCH"
+            ]
           }
         },
         "authToken": {
@@ -639,7 +750,10 @@
           "description": "Authentication token or credentials",
           "conditional": {
             "field": "authType",
-            "value": ["Bearer", "Webhook"]
+            "value": [
+              "Bearer",
+              "Webhook"
+            ]
           }
         },
         "username": {
@@ -699,19 +813,37 @@
         "endpoint": {
           "type": "string",
           "inputType": "select",
-          "options": ["info", "chat", "memory", "tools", "resources", "pay"],
+          "options": [
+            "info",
+            "chat",
+            "memory",
+            "tools",
+            "resources",
+            "pay"
+          ],
           "description": "SLOP endpoint to connect to",
           "default": "info"
         },
         "method": {
           "type": "string",
           "inputType": "select",
-          "options": ["GET", "POST", "PUT", "DELETE"],
+          "options": [
+            "GET",
+            "POST",
+            "PUT",
+            "DELETE"
+          ],
           "description": "HTTP method to use",
           "default": "GET",
           "conditional": {
             "field": "endpoint",
-            "value": ["chat", "memory", "tools", "resources", "pay"]
+            "value": [
+              "chat",
+              "memory",
+              "tools",
+              "resources",
+              "pay"
+            ]
           }
         },
         "authToken": {
@@ -723,12 +855,18 @@
         "streamMode": {
           "type": "string",
           "inputType": "select",
-          "options": ["none", "sse", "websocket"],
+          "options": [
+            "none",
+            "sse",
+            "websocket"
+          ],
           "description": "Streaming mode (if supported by endpoint)",
           "default": "none",
           "conditional": {
             "field": "endpoint",
-            "value": ["chat"]
+            "value": [
+              "chat"
+            ]
           }
         },
         "resourceId": {
@@ -737,7 +875,11 @@
           "description": "ID of the specific resource to access",
           "conditional": {
             "field": "endpoint",
-            "value": ["memory", "resources", "pay"]
+            "value": [
+              "memory",
+              "resources",
+              "pay"
+            ]
           }
         },
         "toolId": {
@@ -755,7 +897,10 @@
           "description": "JSON payload to send with the request",
           "conditional": {
             "field": "method",
-            "value": ["POST", "PUT"]
+            "value": [
+              "POST",
+              "PUT"
+            ]
           }
         },
         "queryParams": {
@@ -798,7 +943,14 @@
           "type": "string",
           "inputType": "select",
           "inputSize": "full",
-          "options": ["List Servers", "Get Server Capabilities", "Use Server", "Connect to Remote URL", "Close Connection", "Close All Connections"],
+          "options": [
+            "List Servers",
+            "Get Server Capabilities",
+            "Use Server",
+            "Connect to Remote URL",
+            "Close Connection",
+            "Close All Connections"
+          ],
           "default": "List Servers",
           "description": "REQUIRED WORKFLOW: First use 'List Servers' to see available MCPs, then 'Get Server Capabilities' to see what a specific server offers (tools/resources/prompts), finally 'Use Server' to call those capabilities. 'Connect to Remote URL' connects directly to a remote MCP server via URL. 'Close Connection' resets a specific server connection. 'Close All Connections' resets all server connections."
         },
@@ -826,18 +978,32 @@
           "description": "Name of the MCP server (from the List Servers output). Example: chrome-devtools, local-example-server",
           "conditional": {
             "field": "operation",
-            "value": ["Get Server Capabilities", "Use Server", "Close Connection"]
+            "value": [
+              "Get Server Capabilities",
+              "Use Server",
+              "Close Connection"
+            ]
           }
         },
         "action": {
           "type": "string",
           "inputType": "select",
-          "options": ["List Tools", "Call Tool", "List Resources", "Read Resource", "List Prompts", "Get Prompt"],
+          "options": [
+            "List Tools",
+            "Call Tool",
+            "List Resources",
+            "Read Resource",
+            "List Prompts",
+            "Get Prompt"
+          ],
           "default": "List Tools",
           "description": "The action to perform on the MCP server",
           "conditional": {
             "field": "operation",
-            "value": ["Use Server", "Connect to Remote URL"]
+            "value": [
+              "Use Server",
+              "Connect to Remote URL"
+            ]
           }
         },
         "toolName": {
@@ -948,7 +1114,11 @@
         "provider": {
           "type": "string",
           "inputType": "select",
-          "options": ["OpenAI", "Gemini", "DeepSeek"],
+          "options": [
+            "OpenAI",
+            "Gemini",
+            "DeepSeek"
+          ],
           "default": "OpenAI",
           "description": "Which LLM provider to use."
         }
@@ -974,7 +1144,6 @@
       "type": "send-email",
       "icon": "outbox",
       "description": "This action node sends an email to a specified recipient with a customizable subject and body.",
-      "requiresPro": true,
       "parameters": {
         "to": {
           "type": "string",
@@ -991,7 +1160,9 @@
         },
         "isHtml": {
           "inputType": "checkbox",
-          "options": ["true"],
+          "options": [
+            "true"
+          ],
           "description": "Whether the body content is HTML"
         },
         "attachments": {
@@ -1040,7 +1211,14 @@
         "voice": {
           "type": "string",
           "inputType": "select",
-          "options": ["alloy", "echo", "fable", "onyx", "nova", "shimmer"],
+          "options": [
+            "alloy",
+            "echo",
+            "fable",
+            "onyx",
+            "nova",
+            "shimmer"
+          ],
           "description": "The voice to use for the speech",
           "default": "alloy"
         },
@@ -1104,7 +1282,6 @@
       "type": "web-search",
       "icon": "web",
       "description": "This action node performs a web search using the AGNT provided Google Custom Search API and returns the top results.",
-      "requiresPro": true,
       "parameters": {
         "searchQuery": {
           "type": "string",
@@ -1120,7 +1297,10 @@
         "sort": {
           "type": "string",
           "inputType": "select",
-          "options": ["date", "relevance"],
+          "options": [
+            "date",
+            "relevance"
+          ],
           "description": "Sort order for the results",
           "default": "date"
         }
@@ -1176,7 +1356,12 @@
         "operation": {
           "type": "string",
           "inputType": "select",
-          "options": ["SELECT", "INSERT", "UPDATE", "DELETE"],
+          "options": [
+            "SELECT",
+            "INSERT",
+            "UPDATE",
+            "DELETE"
+          ],
           "description": "The type of database operation to perform"
         },
         "tableName": {
@@ -1190,7 +1375,11 @@
           "description": "Comma-separated list of columns (for SELECT, INSERT, UPDATE)",
           "conditional": {
             "field": "operation",
-            "value": ["SELECT", "INSERT", "UPDATE"]
+            "value": [
+              "SELECT",
+              "INSERT",
+              "UPDATE"
+            ]
           }
         },
         "condition": {
@@ -1199,7 +1388,11 @@
           "description": "WHERE clause for the operation (for SELECT, UPDATE, DELETE)",
           "conditional": {
             "field": "operation",
-            "value": ["SELECT", "UPDATE", "DELETE"]
+            "value": [
+              "SELECT",
+              "UPDATE",
+              "DELETE"
+            ]
           }
         },
         "values": {
@@ -1208,7 +1401,11 @@
           "description": "Comma-separated list of values (for INSERT, UPDATE)",
           "conditional": {
             "field": "operation",
-            "value": ["INSERT", "UPDATE", "DELETE"]
+            "value": [
+              "INSERT",
+              "UPDATE",
+              "DELETE"
+            ]
           }
         }
       },
@@ -1274,7 +1471,16 @@
           "description": "First argument for the transformation",
           "conditional": {
             "field": "operation",
-            "value": ["Replace", "Split", "Join", "Slice", "Substring", "PadStart", "PadEnd", "ToFixed"]
+            "value": [
+              "Replace",
+              "Split",
+              "Join",
+              "Slice",
+              "Substring",
+              "PadStart",
+              "PadEnd",
+              "ToFixed"
+            ]
           }
         },
         "arg2": {
@@ -1283,7 +1489,13 @@
           "description": "Second argument for the transformation",
           "conditional": {
             "field": "operation",
-            "value": ["Replace", "Slice", "Substring", "PadStart", "PadEnd"]
+            "value": [
+              "Replace",
+              "Slice",
+              "Substring",
+              "PadStart",
+              "PadEnd"
+            ]
           }
         }
       },
@@ -1361,7 +1573,13 @@
         "operation": {
           "type": "string",
           "inputType": "select",
-          "options": ["readFile", "writeFile", "appendFile", "executeFile", "listFiles"],
+          "options": [
+            "readFile",
+            "writeFile",
+            "appendFile",
+            "executeFile",
+            "listFiles"
+          ],
           "description": "The type of file system operation to perform"
         },
         "path": {
@@ -1375,7 +1593,10 @@
           "description": "The content to write or append to the file (for writeFile and appendFile operations)",
           "conditional": {
             "field": "operation",
-            "value": ["writeFile", "appendFile"]
+            "value": [
+              "writeFile",
+              "appendFile"
+            ]
           }
         }
       },
@@ -1491,7 +1712,11 @@
           "type": "string",
           "inputType": "select",
           "inputSize": "half",
-          "options": ["Strict", "Allow Scripts", "Full Access"],
+          "options": [
+            "Strict",
+            "Allow Scripts",
+            "Full Access"
+          ],
           "default": "Strict",
           "description": "Security sandbox level: Strict (blocks all scripts), Allow Scripts (allows scripts but blocks inline event handlers), Full Access (no restrictions)"
         }
@@ -1531,7 +1756,21 @@
           "type": "string",
           "inputType": "select",
           "inputSize": "half",
-          "options": ["javascript", "typescript", "python", "java", "csharp", "cpp", "html", "css", "json", "markdown", "sql", "bash", "plaintext"],
+          "options": [
+            "javascript",
+            "typescript",
+            "python",
+            "java",
+            "csharp",
+            "cpp",
+            "html",
+            "css",
+            "json",
+            "markdown",
+            "sql",
+            "bash",
+            "plaintext"
+          ],
           "default": "javascript",
           "description": "Programming language for syntax highlighting"
         }
@@ -1675,7 +1914,13 @@
           "type": "string",
           "inputType": "select",
           "inputSize": "half",
-          "options": ["bar", "line", "pie", "doughnut", "radar"],
+          "options": [
+            "bar",
+            "line",
+            "pie",
+            "doughnut",
+            "radar"
+          ],
           "default": "bar",
           "description": "Type of chart to display"
         }
@@ -1722,7 +1967,12 @@
           "type": "string",
           "inputType": "select",
           "inputSize": "half",
-          "options": ["milliseconds", "seconds", "minutes", "hours"],
+          "options": [
+            "milliseconds",
+            "seconds",
+            "minutes",
+            "hours"
+          ],
           "description": "The unit of time for the delay duration"
         }
       },
@@ -1743,7 +1993,10 @@
         "loopType": {
           "type": "string",
           "inputType": "select",
-          "options": ["Range", "List"],
+          "options": [
+            "Range",
+            "List"
+          ],
           "description": "The type of loop to execute"
         },
         "initialValue": {
@@ -1850,7 +2103,9 @@
         "waitForCompletion": {
           "type": "boolean",
           "inputType": "checkbox",
-          "options": ["true"],
+          "options": [
+            "true"
+          ],
           "description": "Wait for the sub-workflow to complete before continuing",
           "default": "true"
         }

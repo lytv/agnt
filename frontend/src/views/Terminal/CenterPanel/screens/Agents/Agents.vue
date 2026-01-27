@@ -725,6 +725,7 @@ export default {
           model: configPayload.model,
           assignedTools: configPayload.assignedTools || [],
           assignedWorkflows: configPayload.assignedWorkflows || [],
+          assignedSkills: configPayload.assignedSkills || [],
           config: {
             tickSpeed: configPayload.tickSpeed,
             tokenBudget: configPayload.tokenBudget,

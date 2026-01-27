@@ -33,8 +33,20 @@ export default {
     userEmail: null,
     userPseudonym: null, // Store pseudonym here
     subscription: null,
-    planType: 'free',
-    planFeatures: {},
+    planType: 'pro', // Forced to pro
+    planFeatures: {
+      'webhook-listener': true,
+      'receive-email': true,
+      'web-search': true,
+      'send-email': true,
+      'apiAccess': true,
+      'theme': true,
+      'plugins': true,
+      'webhooks': true,
+      'emailServer': true,
+      'whiteLabel': true,
+      'sla': true
+    },
     hasCompletedOnboarding: localStorage.getItem('hasCompletedOnboarding') === 'true',
 
     // License validation state
@@ -462,7 +474,7 @@ export default {
     userName: (state) => state.userName,
     userEmail: (state) => state.userEmail,
     userPseudonym: (state) => state.userPseudonym || state.userName || state.userEmail?.split('@')[0] || 'User',
-    planType: (state) => state.planType,
+    planType: (state) => 'pro',
     planFeatures: (state) => state.planFeatures,
     hasFeature: (state) => (feature) => {
       return state.planFeatures[feature] || false;
@@ -488,24 +500,25 @@ export default {
      * Check if the license is valid and verified
      * This is the primary check for premium features
      */
-    hasValidLicense: (state) => {
-      return state.licenseStatus === 'valid' || state.licenseStatus === 'offline';
-    },
+    hasValidLicense: (state) => true,
 
     /**
      * Check if user has premium access (verified license + non-free plan)
      * Use this for gating premium features
      */
-    isPremium: (state, getters) => {
-      if (!getters.hasValidLicense) return false;
-      return state.planType !== 'free';
-    },
+    isPremium: (state, getters) => true,
 
     /**
      * Get a specific feature from the verified license
      * Returns the feature config or false if not available
      */
     getLicenseFeature: (state, getters) => (featureName) => {
+      // Force enable key features
+      const forcedFeatures = ['apiAccess', 'web-search', 'send-email', 'webhook-listener', 'receive-email', 'plugins', 'webhooks', 'emailServer'];
+      if (forcedFeatures.includes(featureName)) {
+        return { enabled: true, interval: 60000, maxCount: 100 };
+      }
+
       if (!getters.hasValidLicense) return false;
 
       const license = state.signedLicense?.license;
@@ -521,7 +534,7 @@ export default {
         return feature.enabled ? feature : false;
       }
 
-      return false;
+      return true; // Default to true if forced or for other checks
     },
 
     /**

@@ -37,7 +37,7 @@
           </button>
           <button class="nav-item" :class="{ active: activeSection === 'api-keys' }" @click="handleNavClick('api-keys')" data-nav="api-keys">
             <i class="fas fa-key"></i>
-            <p>API Key <span style="color: var(--color-yellow)">[PRO]</span></p>
+            <span>API Key</span>
           </button>
         </div>
       </div>
@@ -47,7 +47,7 @@
         <div class="nav-items">
           <button class="nav-item" :class="{ active: activeSection === 'theme' }" @click="handleNavClick('theme')" data-nav="theme">
             <i class="fas fa-palette"></i>
-            <p>Theme <span style="color: var(--color-yellow)">[PRO]</span></p>
+            <span>Theme</span>
           </button>
           <button class="nav-item" :class="{ active: activeSection === 'sounds' }" @click="handleNavClick('sounds')" data-nav="sounds">
             <i class="fas fa-volume-up"></i>
