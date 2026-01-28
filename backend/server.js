@@ -292,6 +292,12 @@ function startServer() {
         console.error('Skills Registry initialization error (non-fatal):', error);
       }
 
+      // Initialize Tunnel Service (auto-start if previously enabled)
+      console.log('Initializing Tunnel Service...');
+      await TunnelService.initialize().catch(err => {
+        console.error('Tunnel Service initialization error (non-fatal):', err);
+      });
+
       // Spawn workflow process AFTER plugins are ready
       console.log('Spawning workflow process...');
       try {

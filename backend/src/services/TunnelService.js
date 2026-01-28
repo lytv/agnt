@@ -2,6 +2,25 @@ import { spawn } from 'child_process';
 import { EventEmitter } from 'events';
 import treeKill from 'tree-kill';
 import { broadcast } from '../utils/realtimeSync.js';
+import db from '../models/database/index.js';
+
+// Safe migration - add tunnel_auto_start column if not exists
+db.all(`PRAGMA table_info(users)`, (err, columns) => {
+  if (err) {
+    console.error('[Tunnel] Error checking users table schema:', err);
+    return;
+  }
+  const hasColumn = columns?.some(col => col.name === 'tunnel_auto_start');
+  if (!hasColumn) {
+    db.run(`ALTER TABLE users ADD COLUMN tunnel_auto_start INTEGER DEFAULT 0`, (err) => {
+      if (err && !err.message.includes('duplicate column')) {
+        console.error('[Tunnel] Error adding tunnel_auto_start column:', err);
+      } else {
+        console.log('[Tunnel] Added tunnel_auto_start column to users table');
+      }
+    });
+  }
+});
 
 /**
  * TunnelService - Manages Cloudflare Quick Tunnel for instant local webhooks
@@ -19,6 +38,30 @@ class TunnelService extends EventEmitter {
     this.maxRetries = 3;
     this.enabled = false; // User preference - should tunnel auto-start
     this.error = null;
+  }
+
+  /**
+   * Initialize tunnel service - auto-start if previously enabled
+   * Called during server startup
+   * @returns {Promise<void>}
+   */
+  async initialize() {
+    try {
+      const row = await new Promise((resolve, reject) => {
+        db.get(`SELECT tunnel_auto_start FROM users LIMIT 1`, (err, row) => {
+          if (err) reject(err);
+          else resolve(row);
+        });
+      });
+
+      if (row?.tunnel_auto_start === 1) {
+        console.log('[Tunnel] Auto-starting (saved preference)...');
+        await this.enable();
+      }
+    } catch (error) {
+      console.error('[Tunnel] Auto-start failed:', error.message);
+      // Don't clear preference - user can fix and restart
+    }
   }
 
   /**
@@ -240,12 +283,23 @@ class TunnelService extends EventEmitter {
     this.enabled = true;
     this.retryCount = 0;
     await this.start();
+    // Persist after successful start
+    db.run(`UPDATE users SET tunnel_auto_start = 1`, (err) => {
+      if (err) console.error('[Tunnel] Error persisting enabled state:', err);
+    });
   }
 
   /**
    * Disable tunnel
    */
-  disable() {
+  async disable() {
+    this.enabled = false;
+    await new Promise((resolve) => {
+      db.run(`UPDATE users SET tunnel_auto_start = 0`, (err) => {
+        if (err) console.error('[Tunnel] Error persisting disabled state:', err);
+        resolve();
+      });
+    });
     this.stop();
   }
 
