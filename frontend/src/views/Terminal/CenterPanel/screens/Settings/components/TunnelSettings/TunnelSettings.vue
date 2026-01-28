@@ -32,7 +32,9 @@
         <div class="toggle-info">
           <span class="toggle-label">Enable Instant Webhooks</span>
           <span class="toggle-description">
-            Uses Cloudflare Quick Tunnel to receive webhooks directly
+            {{ tunnelState.isNamedTunnel
+              ? 'Using Named Tunnel (persistent URL across restarts)'
+              : 'Using Quick Tunnel (temporary URL, changes on restart)' }}
           </span>
         </div>
         <label class="toggle-switch">
@@ -82,15 +84,27 @@
       </div>
 
       <!-- Info Box -->
-      <div class="info-box">
+      <div v-if="tunnelState.isNamedTunnel" class="info-box info-box-success">
+        <i class="fas fa-check-circle"></i>
+        <div class="info-content">
+          <p><strong>Named Tunnel Active ✓</strong></p>
+          <ul>
+            <li><strong>Persistent URL</strong> - never changes across restarts</li>
+            <li>Instant webhook delivery (&lt;500ms)</li>
+            <li>Your workflows will always use the same webhook URL</li>
+            <li>Configured via <code>~/.cloudflared/config.yml</code></li>
+          </ul>
+        </div>
+      </div>
+      <div v-else class="info-box">
         <i class="fas fa-info-circle"></i>
         <div class="info-content">
-          <p><strong>How it works:</strong></p>
+          <p><strong>Quick Tunnel Mode:</strong></p>
           <ul>
-            <li>Creates a secure tunnel from Cloudflare to your local AGNT</li>
-            <li>Webhooks are delivered instantly (no polling delay)</li>
+            <li>Instant webhook delivery (&lt;500ms)</li>
             <li>No account or API key required</li>
-            <li>URL changes each time tunnel restarts</li>
+            <li><strong>URL changes</strong> each time tunnel restarts</li>
+            <li><em>Tip:</em> Set up Named Tunnel for persistent URLs</li>
           </ul>
         </div>
       </div>
@@ -111,6 +125,8 @@ export default {
       installed: true,
       installCommand: 'brew install cloudflared',
       error: null,
+      isNamedTunnel: false,
+      persistentUrl: null,
     });
 
     const isLoading = ref(false);
@@ -570,10 +586,19 @@ body.dark .tunnel-card {
   border-radius: 8px;
 }
 
+.info-box-success {
+  background: rgba(34, 197, 94, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.3);
+}
+
 .info-box > i {
   color: #3b82f6;
   font-size: 1.2em;
   margin-top: 2px;
+}
+
+.info-box-success > i {
+  color: #22c55e;
 }
 
 .info-content {

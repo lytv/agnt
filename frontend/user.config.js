@@ -50,7 +50,7 @@ const backendBaseUrl = `http://localhost:${backendPort}/api`;
 export const API_CONFIG = {
   BASE_URL: backendBaseUrl, // dynamically set based on frontend port
   FRONTEND_URL: 'http://localhost:5173', // local frontend url (dev server)
-  WEBHOOK_URL: 'https://api.agnt.gg', // remote webhook url
+  WEBHOOK_URL: 'https://webhooks.tienphong.app', // remote webhook url
   REMOTE_URL: 'https://api.agnt.gg', // remote url for sharing, login, app auths, and webhooks
 };
 

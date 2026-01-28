@@ -58,6 +58,8 @@ const config = {
       'https://www.agnt.gg',
       'https://alpha.agnt.gg',
       'https://www.alpha.agnt.gg',
+      'https://webhooks.tienphong.app',
+      'https://www.webhooks.tienphong.app',
     ],
     methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
     allowedHeaders: ['Content-Type', 'Authorization'],

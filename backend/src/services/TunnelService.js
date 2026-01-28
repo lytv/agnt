@@ -3,6 +3,7 @@ import { EventEmitter } from 'events';
 import treeKill from 'tree-kill';
 import { broadcast } from '../utils/realtimeSync.js';
 import db from '../models/database/index.js';
+import CloudflaredConfig from '../utils/cloudflaredConfig.js';
 
 // Safe migration - add tunnel_auto_start column if not exists
 db.all(`PRAGMA table_info(users)`, (err, columns) => {
@@ -23,21 +24,43 @@ db.all(`PRAGMA table_info(users)`, (err, columns) => {
 });
 
 /**
- * TunnelService - Manages Cloudflare Quick Tunnel for instant local webhooks
+ * TunnelService - Manages Cloudflare Tunnel for instant local webhooks
  *
- * Uses cloudflared to create an ad-hoc tunnel that exposes localhost:3333
- * to the internet with zero configuration required.
+ * Supports two modes:
+ * 1. Named Tunnel (persistent URL) - Reads from ~/.cloudflared/config.yml
+ * 2. Quick Tunnel (temporary URL) - Falls back if no Named Tunnel configured
  */
 class TunnelService extends EventEmitter {
   constructor() {
     super();
     this.process = null;
     this.cachedUrl = null;
+    this.persistentUrl = null; // Named Tunnel URL (never changes)
+    this.isNamedTunnel = false; // true if using Named Tunnel
     this.status = 'disconnected'; // 'disconnected', 'starting', 'connected', 'error'
     this.retryCount = 0;
     this.maxRetries = 3;
     this.enabled = false; // User preference - should tunnel auto-start
     this.error = null;
+
+    // Check for Named Tunnel config on startup
+    this._detectNamedTunnel();
+  }
+
+  /**
+   * Detect if user has Named Tunnel configured
+   * If yes, set persistent URL immediately
+   */
+  _detectNamedTunnel() {
+    if (CloudflaredConfig.isNamedTunnelConfigured()) {
+      const hostname = CloudflaredConfig.getHostname();
+      this.persistentUrl = `https://${hostname}`;
+      this.isNamedTunnel = true;
+      console.log('[Tunnel] Named Tunnel detected');
+      console.log(`[Tunnel] Persistent URL: ${this.persistentUrl}`);
+    } else {
+      console.log('[Tunnel] No Named Tunnel configured - will use Quick Tunnel');
+    }
   }
 
   /**
@@ -118,42 +141,59 @@ class TunnelService extends EventEmitter {
     this.status = 'starting';
     this.error = null;
     this._broadcast();
-    console.log('[Tunnel] Starting cloudflared...');
 
     const port = process.env.PORT || 3333;
 
-    this.process = spawn('cloudflared', ['tunnel', '--url', `http://localhost:${port}`], {
-      stdio: ['ignore', 'pipe', 'pipe']
-    });
+    // Use Named Tunnel if configured, otherwise Quick Tunnel
+    if (this.isNamedTunnel) {
+      console.log('[Tunnel] Starting Named Tunnel (persistent URL)...');
+      const tunnelId = CloudflaredConfig.getTunnelId();
+      this.process = spawn('cloudflared', ['tunnel', 'run', tunnelId], {
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
 
-    // cloudflared outputs the URL to stderr
-    this.process.stderr.on('data', (data) => {
-      const text = data.toString();
-      // Match the trycloudflare.com URL
-      const match = text.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
-      if (match && !this.cachedUrl) {
-        this.cachedUrl = match[0];
-        this.status = 'connected';
-        this.retryCount = 0;
-        this.error = null;
-        this._broadcast();
-        console.log('[Tunnel] Connected:', this.cachedUrl);
-      }
-    });
+      // For Named Tunnel, URL is known immediately
+      this.cachedUrl = this.persistentUrl;
+      this.status = 'connected';
+      this.retryCount = 0;
+      this.error = null;
+      this._broadcast();
+      console.log('[Tunnel] Named Tunnel connected:', this.cachedUrl);
+    } else {
+      console.log('[Tunnel] Starting Quick Tunnel (temporary URL)...');
+      this.process = spawn('cloudflared', ['tunnel', '--url', `http://localhost:${port}`], {
+        stdio: ['ignore', 'pipe', 'pipe']
+      });
+    }
 
-    this.process.stdout.on('data', (data) => {
-      // Some versions may output to stdout
-      const text = data.toString();
-      const match = text.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
-      if (match && !this.cachedUrl) {
-        this.cachedUrl = match[0];
-        this.status = 'connected';
-        this.retryCount = 0;
-        this.error = null;
-        this._broadcast();
-        console.log('[Tunnel] Connected:', this.cachedUrl);
-      }
-    });
+    // For Quick Tunnel, parse URL from stderr
+    if (!this.isNamedTunnel) {
+      this.process.stderr.on('data', (data) => {
+        const text = data.toString();
+        const match = text.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
+        if (match && !this.cachedUrl) {
+          this.cachedUrl = match[0];
+          this.status = 'connected';
+          this.retryCount = 0;
+          this.error = null;
+          this._broadcast();
+          console.log('[Tunnel] Quick Tunnel connected:', this.cachedUrl);
+        }
+      });
+
+      this.process.stdout.on('data', (data) => {
+        const text = data.toString();
+        const match = text.match(/https:\/\/[a-zA-Z0-9-]+\.trycloudflare\.com/);
+        if (match && !this.cachedUrl) {
+          this.cachedUrl = match[0];
+          this.status = 'connected';
+          this.retryCount = 0;
+          this.error = null;
+          this._broadcast();
+          console.log('[Tunnel] Quick Tunnel connected:', this.cachedUrl);
+        }
+      });
+    }
 
     this.process.on('error', (err) => {
       console.error('[Tunnel] Process error:', err.message);
@@ -215,7 +255,10 @@ class TunnelService extends EventEmitter {
    */
   _cleanup() {
     this.process = null;
-    this.cachedUrl = null;
+    // Keep persistentUrl for Named Tunnel (it never changes)
+    if (!this.isNamedTunnel) {
+      this.cachedUrl = null;
+    }
     if (this.status !== 'error') {
       this.status = 'disconnected';
     }
@@ -268,6 +311,8 @@ class TunnelService extends EventEmitter {
       installed: null, // Will be populated async
       installCommand: this.getInstallCommand(),
       error: this.error,
+      isNamedTunnel: this.isNamedTunnel,
+      persistentUrl: this.persistentUrl,
     };
   }
 

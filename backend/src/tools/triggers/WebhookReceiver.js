@@ -128,15 +128,20 @@ class LocalWebhookReceiver extends EventEmitter {
   async registerWebhook(workflowId, userId, method, authType, authToken, username, password, responseMode = 'Immediate') {
     // Generate webhook URL - prefer tunnel URL if available, fallback to remote
     const tunnelUrl = TunnelService.getUrl();
+    const isNamedTunnel = TunnelService.isNamedTunnel;
     const webhookUrl = tunnelUrl
       ? `${tunnelUrl}/api/webhooks/trigger/${workflowId}`
       : `${this.remoteUrl}/webhook/${workflowId}`;
 
     // Enhanced logging for tunnel vs polling mode
     if (tunnelUrl) {
+      const tunnelType = isNamedTunnel ? 'Named Tunnel - PERSISTENT URL ✓' : 'Quick Tunnel';
       console.log(`[Webhook] ✓ Registering webhook for workflow ${workflowId}`);
       console.log(`[Webhook]   URL: ${webhookUrl}`);
-      console.log(`[Webhook]   Mode: INSTANT (via Cloudflare Tunnel)`);
+      console.log(`[Webhook]   Mode: INSTANT (via ${tunnelType})`);
+      if (isNamedTunnel) {
+        console.log(`[Webhook]   ℹ URL will never change (persists across restarts)`);
+      }
     } else {
       console.log(`[Webhook] ⚠ Registering webhook for workflow ${workflowId}`);
       console.log(`[Webhook]   URL: ${webhookUrl}`);
