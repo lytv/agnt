@@ -619,6 +619,7 @@ See [Testing Instructions](docs/_TESTS_INSTRUCTIONS.md) for more details.
 | [🐳 Self-Hosting Guide](docs/SELF_HOSTING.md)                 | Docker deployment & hosting        |
 | [🪶 Docker Lite Mode](docs/LITE_MODE.md)                      | Docker without browser automation  |
 | [🪶 Electron Lite Mode](docs/ELECTRON_LITE_MODE.md)           | Smaller desktop builds (~50% size) |
+| [💬 External Chat](docs/EXTERNAL_CHAT.md)                     | Telegram & Discord integration (planned) |
 | [🔌 Plugin Development](backend/plugins/README.md)            | Creating custom plugins            |
 | [🔧 Rebuild Guide](docs/_REBUILD-INSTRUCTIONS.md)             | Native module rebuilding           |
 | [🚀 CI/CD Pipelines](docs/CI_CD.md)                           | GitHub Actions workflows           |
