@@ -14,7 +14,28 @@ class LocalWebhookReceiver extends EventEmitter {
 
     // Load webhooks and auto-start polling if there are active webhook workflows
     this.initializeWebhooks();
+
+    // Listen for tunnel status changes to auto-fallback to polling
+    this._setupTunnelListener();
+
     console.log('LocalWebhookReceiver instantiated.');
+  }
+
+  /**
+   * Setup listener for tunnel status changes
+   * Automatically starts polling when tunnel disconnects
+   */
+  _setupTunnelListener() {
+    TunnelService.on('statusChange', ({ status, url }) => {
+      if (status === 'disconnected' && this.webhooks.size > 0) {
+        console.log('[WebhookReceiver] Tunnel disconnected - starting polling fallback for remote webhooks');
+        this.startPolling();
+      } else if (status === 'connected') {
+        console.log(`[WebhookReceiver] Tunnel connected at ${url} - instant webhook delivery enabled`);
+        // Optionally stop polling when tunnel connects (webhooks will be delivered directly)
+        // Note: Keep polling for existing remote-registered webhooks until they're re-registered
+      }
+    });
   }
 
   /**
@@ -111,7 +132,16 @@ class LocalWebhookReceiver extends EventEmitter {
       ? `${tunnelUrl}/api/webhooks/trigger/${workflowId}`
       : `${this.remoteUrl}/webhook/${workflowId}`;
 
-    console.log(`Registering webhook for workflow ${workflowId}: ${webhookUrl}${tunnelUrl ? ' (via tunnel)' : ' (via remote)'}`);
+    // Enhanced logging for tunnel vs polling mode
+    if (tunnelUrl) {
+      console.log(`[Webhook] ✓ Registering webhook for workflow ${workflowId}`);
+      console.log(`[Webhook]   URL: ${webhookUrl}`);
+      console.log(`[Webhook]   Mode: INSTANT (via Cloudflare Tunnel)`);
+    } else {
+      console.log(`[Webhook] ⚠ Registering webhook for workflow ${workflowId}`);
+      console.log(`[Webhook]   URL: ${webhookUrl}`);
+      console.log(`[Webhook]   Mode: POLLING (10s delay) - Enable Instant Webhooks in Settings for faster delivery`);
+    }
 
     // Store the webhook configuration locally in memory
     this.webhooks.set(workflowId, {
@@ -139,14 +169,17 @@ class LocalWebhookReceiver extends EventEmitter {
         });
 
         if (response.data.success) {
-          console.log(`Webhook registered on remote server for workflow ${workflowId}`);
+          console.log(`[Webhook] Registered on remote server for workflow ${workflowId}`);
         } else {
-          console.warn(`Remote webhook registration returned: ${response.data.error}`);
+          console.warn(`[Webhook] Remote registration returned: ${response.data.error}`);
         }
       } catch (remoteError) {
-        console.error(`Error registering webhook on remote server: ${remoteError.message}`);
+        console.error(`[Webhook] Error registering on remote server: ${remoteError.message}`);
         // Continue even if remote registration fails - polling will still work
       }
+
+      // Start polling for remote webhooks
+      this.startPolling();
     }
 
     // Check if webhook already exists in local database

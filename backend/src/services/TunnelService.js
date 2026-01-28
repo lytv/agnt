@@ -228,6 +228,11 @@ class TunnelService extends EventEmitter {
     const state = this.getState();
     broadcast('tunnel:status', state);
     this.emit('change', state);
+
+    // Emit statusChange event for WebhookReceiver to handle fallback
+    if (this.status === 'connected' || this.status === 'disconnected') {
+      this.emit('statusChange', { status: this.status, url: this.cachedUrl });
+    }
   }
 
   /**
