@@ -34,6 +34,8 @@ import WebhookRoutes from './src/routes/WebhookRoutes.js';
 import SpeechRoutes from './src/routes/SpeechRoutes.js';
 import PluginRoutes from './src/routes/PluginRoutes.js';
 import SkillRoutes from './src/routes/SkillRoutes.js';
+import TunnelRoutes from './src/routes/TunnelRoutes.js';
+import TunnelService from './src/services/TunnelService.js';
 import WorkflowProcessBridge from './src/workflow/WorkflowProcessBridge.js';
 import { sessionMiddleware } from './src/routes/Middleware.js';
 
@@ -119,6 +121,7 @@ app.use('/api/webhooks', WebhookRoutes);
 app.use('/api/speech', SpeechRoutes);
 app.use('/api/plugins', PluginRoutes);
 app.use('/api/skills', SkillRoutes);
+app.use('/api/tunnel', TunnelRoutes);
 app.get('/api/health', (req, res) => res.status(200).json({ status: 'OK' }));
 
 // Version endpoint - reads dynamically from package.json
@@ -333,7 +336,26 @@ function startServer() {
     process.on('SIGTERM', async () => {
       console.log('SIGTERM signal received: closing HTTP server');
 
+      // Shutdown tunnel service
+      TunnelService.shutdown();
+
       // Shutdown workflow process first
+      await WorkflowProcessBridge.shutdown();
+
+      server.close(() => {
+        console.log('HTTP server closed');
+        process.exit(0);
+      });
+    });
+
+    // Also handle SIGINT (Ctrl+C)
+    process.on('SIGINT', async () => {
+      console.log('SIGINT signal received: closing HTTP server');
+
+      // Shutdown tunnel service
+      TunnelService.shutdown();
+
+      // Shutdown workflow process
       await WorkflowProcessBridge.shutdown();
 
       server.close(() => {

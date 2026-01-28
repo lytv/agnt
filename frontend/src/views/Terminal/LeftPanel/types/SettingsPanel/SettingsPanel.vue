@@ -39,6 +39,10 @@
             <i class="fas fa-key"></i>
             <span>API Key</span>
           </button>
+          <button class="nav-item" :class="{ active: activeSection === 'webhooks' }" @click="handleNavClick('webhooks')" data-nav="webhooks">
+            <i class="fas fa-bolt"></i>
+            <span>Webhooks</span>
+          </button>
         </div>
       </div>
 

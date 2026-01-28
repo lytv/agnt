@@ -2,6 +2,7 @@ import axios from 'axios';
 import { EventEmitter } from 'events';
 import WebhookModel from '../../models/WebhookModel.js';
 import WorkflowModel from '../../models/WorkflowModel.js';
+import TunnelService from '../../services/TunnelService.js';
 
 class LocalWebhookReceiver extends EventEmitter {
   constructor(processManager) {
@@ -104,10 +105,13 @@ class LocalWebhookReceiver extends EventEmitter {
   }
 
   async registerWebhook(workflowId, userId, method, authType, authToken, username, password, responseMode = 'Immediate') {
-    // Generate webhook URL (remote server handles webhooks at /webhook/:workflowId)
-    const webhookUrl = `${this.remoteUrl}/webhook/${workflowId}`;
+    // Generate webhook URL - prefer tunnel URL if available, fallback to remote
+    const tunnelUrl = TunnelService.getUrl();
+    const webhookUrl = tunnelUrl
+      ? `${tunnelUrl}/api/webhooks/trigger/${workflowId}`
+      : `${this.remoteUrl}/webhook/${workflowId}`;
 
-    console.log(`Registering webhook for workflow ${workflowId}: ${webhookUrl}`);
+    console.log(`Registering webhook for workflow ${workflowId}: ${webhookUrl}${tunnelUrl ? ' (via tunnel)' : ' (via remote)'}`);
 
     // Store the webhook configuration locally in memory
     this.webhooks.set(workflowId, {
@@ -120,27 +124,29 @@ class LocalWebhookReceiver extends EventEmitter {
       responseMode,
     });
 
-    // Register webhook on remote server so it persists across remote restarts
-    try {
-      const response = await axios.post(`${this.remoteUrl}/webhooks/register`, {
-        workflowId,
-        userId,
-        method: method || null,
-        authType: authType || null,
-        authToken: authToken || null,
-        username: username || null,
-        password: password || null,
-        responseMode: responseMode || 'Immediate',
-      });
+    // Only register with remote server if NOT using tunnel
+    if (!tunnelUrl) {
+      try {
+        const response = await axios.post(`${this.remoteUrl}/webhooks/register`, {
+          workflowId,
+          userId,
+          method: method || null,
+          authType: authType || null,
+          authToken: authToken || null,
+          username: username || null,
+          password: password || null,
+          responseMode: responseMode || 'Immediate',
+        });
 
-      if (response.data.success) {
-        console.log(`Webhook registered on remote server for workflow ${workflowId}`);
-      } else {
-        console.warn(`Remote webhook registration returned: ${response.data.error}`);
+        if (response.data.success) {
+          console.log(`Webhook registered on remote server for workflow ${workflowId}`);
+        } else {
+          console.warn(`Remote webhook registration returned: ${response.data.error}`);
+        }
+      } catch (remoteError) {
+        console.error(`Error registering webhook on remote server: ${remoteError.message}`);
+        // Continue even if remote registration fails - polling will still work
       }
-    } catch (remoteError) {
-      console.error(`Error registering webhook on remote server: ${remoteError.message}`);
-      // Continue even if remote registration fails - polling will still work
     }
 
     // Check if webhook already exists in local database

@@ -117,6 +117,19 @@
           </div>
         </div>
 
+        <!-- Webhooks Section -->
+        <div v-else-if="activeSection === 'webhooks'" class="settings-content" data-section="webhooks">
+          <div class="content-header">
+            <h2 class="content-title">Webhook Settings</h2>
+            <p class="content-subtitle">Configure instant webhook delivery for your workflows</p>
+          </div>
+          <div class="settings-grid">
+            <div class="settings-section full-width">
+              <TunnelSettings />
+            </div>
+          </div>
+        </div>
+
         <!-- Security Section -->
         <div v-else-if="activeSection === 'security'" class="settings-content" data-section="security">
           <div class="content-header">
@@ -250,6 +263,7 @@ import AgntScoreBreakdown from './components/AgntScoreBreakdown/AgntScoreBreakdo
 import ProfileSection from './components/ProfileSection/ProfileSection.vue';
 import ReferralsSection from './components/ReferralsSection/ReferralsSection.vue';
 import LeaderboardSection from './components/LeaderboardSection/LeaderboardSection.vue';
+import TunnelSettings from './components/TunnelSettings/TunnelSettings.vue';
 import { useSettingsTutorial } from './useTutorial.js';
 import PopupTutorial from '../../../../_components/utility/PopupTutorial.vue';
 
@@ -271,6 +285,7 @@ export default {
     ProfileSection,
     ReferralsSection,
     LeaderboardSection,
+    TunnelSettings,
     PopupTutorial,
   },
   emits: ['screen-change', 'start-tour'],
