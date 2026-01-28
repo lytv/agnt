@@ -75,6 +75,9 @@ export const RealtimeEvents = {
   CHAT_TOOL_END: 'chat:tool_end',
   CHAT_MESSAGE_END: 'chat:message_end',
   CHAT_USER_MESSAGE: 'chat:user_message',
+
+  // Tunnel (local webhook server)
+  TUNNEL_STATUS: 'tunnel:status',
 };
 
 export default {

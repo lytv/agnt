@@ -53,6 +53,7 @@ export default {
         successRate: agent.successRate || agent.success_rate || null,
         provider: agent.provider || '',
         model: agent.model || '',
+        assignedSkills: agent.assignedSkills || [],
       }));
       state.lastFetched = Date.now();
     },
@@ -139,6 +140,7 @@ export default {
         category: agentData.category || '',
         assignedTools: agentData.assignedTools || [],
         assignedWorkflows: agentData.assignedWorkflows || [],
+        assignedSkills: agentData.assignedSkills || [],
       });
       commit('SET_LOADING', true);
       try {
@@ -158,6 +160,7 @@ export default {
           category: agentData.category || '',
           assignedTools: agentData.assignedTools || [],
           assignedWorkflows: agentData.assignedWorkflows || [],
+          assignedSkills: agentData.assignedSkills || [],
           provider: agentData.provider || '',
           model: agentData.model || '',
         };
@@ -181,6 +184,7 @@ export default {
           category: (data.agent && data.agent.category) || agentData.category || '',
           assignedTools: (data.agent && data.agent.assignedTools) || agentData.assignedTools || [],
           assignedWorkflows: (data.agent && data.agent.assignedWorkflows) || agentData.assignedWorkflows || [],
+          assignedSkills: (data.agent && data.agent.assignedSkills) || agentData.assignedSkills || [],
         });
         return data;
       } catch (error) {
@@ -209,6 +213,7 @@ export default {
           category: agentData.category || '',
           assignedTools: agentData.assignedTools || [],
           assignedWorkflows: agentData.assignedWorkflows || [],
+          assignedSkills: agentData.assignedSkills || [],
           provider: agentData.provider || '',
           model: agentData.model || '',
         };
@@ -231,6 +236,7 @@ export default {
           category: (data.agent && data.agent.category) || agent.category || '',
           assignedTools: (data.agent && data.agent.assignedTools) || agent.assignedTools || [],
           assignedWorkflows: (data.agent && data.agent.assignedWorkflows) || agent.assignedWorkflows || [],
+          assignedSkills: (data.agent && data.agent.assignedSkills) || agent.assignedSkills || [],
         };
         commit('ADD_AGENT', serverAgent);
 

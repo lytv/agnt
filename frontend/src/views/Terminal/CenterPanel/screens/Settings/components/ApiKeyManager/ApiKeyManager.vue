@@ -2,7 +2,7 @@
   <div class="api-key-display">
     <h3 style="margin-bottom: 12px">
       AGNT.gg API Key
-      <span v-if="!isPro" class="pro-badge-label"> <i class="fas fa-lock"></i> PRO </span>
+
     </h3>
 
     <div class="key-container-wrapper">
@@ -20,10 +20,7 @@
           </button>
         </Tooltip>
       </div>
-      <div v-if="!isPro" class="locked-overlay">
-        <i class="fas fa-lock"></i>
-        <p>Upgrade to PRO to unlock</p>
-      </div>
+
     </div>
     <SimpleModal ref="modal" />
   </div>

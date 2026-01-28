@@ -118,6 +118,10 @@ function setupIPCHandlers() {
           result = await handleReloadPlugins();
           break;
 
+        case 'PROCESS_WEBHOOK_TRIGGER':
+          result = await handleProcessWebhookTrigger(data);
+          break;
+
         default:
           success = false;
           error = `Unknown message type: ${type}`;
@@ -197,6 +201,23 @@ async function handleReloadPlugins() {
       success: false,
       error: error.message,
     };
+  }
+}
+
+// Handle webhook trigger from main process (via IPC)
+async function handleProcessWebhookTrigger(data) {
+  const { workflowId, triggerData } = data;
+  console.log(`[WorkflowProcess] Processing webhook trigger for workflow ${workflowId}`);
+
+  try {
+    const result = await ProcessManager.WebhookReceiver._processWebhookTrigger(
+      workflowId,
+      triggerData
+    );
+    return result;
+  } catch (error) {
+    console.error(`[WorkflowProcess] Error processing webhook trigger:`, error);
+    return { status: 500, message: error.message };
   }
 }
 

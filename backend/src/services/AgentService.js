@@ -126,6 +126,7 @@ class AgentService {
           model: agent.model,
           assignedTools: agent.assignedTools || [],
           assignedWorkflows: agent.assignedWorkflows || [],
+          assignedSkills: agent.assignedSkills || [],
           resourceId: resource.id,
           creditsUsed: resource.credits_used || 0,
           creditLimit: resource.credit_limit || 0,
@@ -151,9 +152,10 @@ class AgentService {
       }
 
       if (agent.created_by === req.user.userId) {
-        // Always include assignedTools and assignedWorkflows as arrays
+        // Always include assignedTools, assignedWorkflows, and assignedSkills as arrays
         agent.assignedTools = agent.assignedTools || [];
         agent.assignedWorkflows = agent.assignedWorkflows || [];
+        agent.assignedSkills = agent.assignedSkills || [];
         // Include provider and model fields
         agent.provider = agent.provider || '';
         agent.model = agent.model || '';
@@ -222,6 +224,34 @@ class AgentService {
       }
     }
 
+    // Load and inject assigned skills EARLY to include their tools in the prompt
+    let skillInstructions = '';
+    if (agent.assignedSkills && agent.assignedSkills.length > 0) {
+      try {
+        const { SkillRegistry } = await import('./skills/SkillRegistry.js');
+        const registry = SkillRegistry.getInstance();
+        const skills = agent.assignedSkills
+          .map(skillId => registry.getSkill(skillId))
+          .filter(Boolean);
+
+        if (skills.length > 0) {
+          skills.forEach(skill => {
+            skillInstructions += `\n\n## SKILL: ${skill.name.toUpperCase()}\n\n${skill.instructions}`;
+            // Auto-add required tools from skills
+            const requiredTools = skill.requiredTools || [];
+            requiredTools.forEach(toolName => {
+              if (toolSchemaMap.has(toolName) && !availableTools.some(t => t.function.name === toolName)) {
+                availableTools.push(toolSchemaMap.get(toolName));
+              }
+            });
+          });
+          console.log(`[AgentService] Injected ${skills.length} skills for agent ${agent.id}`);
+        }
+      } catch (error) {
+        console.error('[AgentService] Error loading skills:', error);
+      }
+    }
+
     // Create dynamic system prompt with current date/time and rich tool information
     const currentDate = new Date().toString();
 
@@ -229,11 +259,11 @@ class AgentService {
     const availableToolsList =
       availableTools.length > 0
         ? availableTools
-            .map((tool) => {
-              const schema = tool.function;
-              return `- ${schema.name}: ${schema.description}`;
-            })
-            .join('\n')
+          .map((tool) => {
+            const schema = tool.function;
+            return `- ${schema.name}: ${schema.description}`;
+          })
+          .join('\n')
         : '- No tools assigned to this agent';
 
     const systemPrompt = `Current date and time: ${currentDate}
@@ -267,7 +297,11 @@ ${MCP_TOOL_USE_RULES}
 
 ${CRITICAL_TOOL_RESPONSE_RULES}
 
+${skillInstructions}
+
 Remember: You are ${agent.name} with specialized expertise. Use your assigned tools strategically to provide exceptional assistance while maintaining your unique personality and focus area.`;
+
+    console.log(`[AgentService] Final system prompt length for ${agent.name}: ${systemPrompt.length} chars`);
 
     return {
       agentContext: {
@@ -294,8 +328,8 @@ Remember: You are ${agent.name} with specialized expertise. Use your assigned to
 
     // Add agent context and ID to request body for universal handler
     req.body.agentId = id;
-    req.body.agentContext = agentContext.agentContext;
-    req.body.agentState = agentContext.agentState;
+    req.body.agentContext = agentContext;
+    req.body.agentState = null; // Agent state not used yet for standard agents
 
     return universalChatHandler(req, res, { type: 'agent' });
   };
@@ -314,8 +348,8 @@ Remember: You are ${agent.name} with specialized expertise. Use your assigned to
 
     // Add agent context and ID to request body for universal handler
     req.body.agentId = id;
-    req.body.agentContext = agentContext.agentContext;
-    req.body.agentState = agentContext.agentState;
+    req.body.agentContext = agentContext;
+    req.body.agentState = null; // Agent state not used yet for standard agents
 
     return universalChatHandler(req, res, { type: 'agent' });
   };
@@ -333,7 +367,7 @@ Remember: You are ${agent.name} with specialized expertise. Use your assigned to
     if (model) req.body.model = model;
 
     // Add agent context for suggestions
-    req.body.agentContext = agentContext.agentContext;
+    req.body.agentContext = agentContext;
 
     return universalChatHandler(req, res, { type: 'suggestions' });
   };

@@ -1,5 +1,6 @@
 import BaseTrigger from '../BaseTrigger.js';
 import ProcessManager from '../../../workflow/ProcessManager.js';
+import TunnelService from '../../../services/TunnelService.js';
 
 class WebhookListener extends BaseTrigger {
   static schema = {
@@ -115,7 +116,7 @@ class WebhookListener extends BaseTrigger {
 
     try {
       const { method, authType, authToken, username, password, responseMode, responseBody, responseContentType } = node.parameters;
-      this.webhookUrl = ProcessManager.WebhookReceiver.registerWebhook(
+      this.webhookUrl = await ProcessManager.WebhookReceiver.registerWebhook(
         engine.workflowId,
         engine.userId,
         method,
@@ -127,7 +128,17 @@ class WebhookListener extends BaseTrigger {
         responseBody,
         responseContentType
       );
-      console.log(`Webhook registered for workflow ${engine.workflowId}: ${this.webhookUrl}`);
+
+      // Check tunnel status and log appropriate message
+      const tunnelUrl = TunnelService.getUrl();
+      if (tunnelUrl) {
+        console.log(`[Webhook Listener] ✓ Workflow ${engine.workflowId} ready for instant webhooks`);
+        console.log(`[Webhook Listener]   URL: ${this.webhookUrl}`);
+      } else {
+        console.warn(`[Webhook Listener] ⚠ Workflow ${engine.workflowId} using polling mode (10s delay)`);
+        console.warn(`[Webhook Listener]   URL: ${this.webhookUrl}`);
+        console.warn(`[Webhook Listener]   TIP: Enable Instant Webhooks in Settings > Tunnel for <500ms delivery`);
+      }
     } catch (error) {
       console.error(`Error setting up webhook listener: ${error.message}`);
       engine._updateNodeError(node.id, error.message);

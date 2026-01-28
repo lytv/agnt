@@ -4,7 +4,7 @@
     <div class="theme-selector-group">
       <h3 style="margin-bottom: 12px">
         Custom Theme
-        <span v-if="!isPro" class="pro-badge-label"> <i class="fas fa-lock"></i> PRO </span>
+
       </h3>
 
       <div class="theme-options" :class="{ locked: !isPro }">
@@ -61,10 +61,7 @@
       </Tooltip>
     </div>
 
-    <div v-if="!isPro" class="locked-overlay">
-      <i class="fas fa-lock"></i>
-      <p>Upgrade to PRO to unlock</p>
-    </div>
+
 
     <div class="background-image-group" v-if="useCustomBackground && isPro">
       <label class="theme-label">Background Media</label>

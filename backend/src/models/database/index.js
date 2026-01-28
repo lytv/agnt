@@ -154,6 +154,7 @@ function createTables() {
         category TEXT,
         tools TEXT,
         workflows TEXT,
+        assignedSkills TEXT,
         provider TEXT,
         model TEXT,
         created_by TEXT NOT NULL,
@@ -541,6 +542,13 @@ function createTables() {
 // Function to run migrations
 function runMigrations() {
   return new Promise((resolve, reject) => {
+    // Add assignedSkills column to agents table if it doesn't exist
+    db.run(`ALTER TABLE agents ADD COLUMN assignedSkills TEXT`, (err) => {
+      if (err && !err.message.includes('duplicate column name')) {
+        console.error('Error adding assignedSkills column:', err);
+      }
+    });
+
     // Add provider and model columns to agents table if they don't exist
     // db.run(`ALTER TABLE agents ADD COLUMN provider TEXT`, (err) => {
     //   if (err && !err.message.includes('duplicate column name')) {
