@@ -130,6 +130,19 @@
           </div>
         </div>
 
+        <!-- External Chat Section -->
+        <div v-else-if="activeSection === 'external-chat'" class="settings-content" data-section="external-chat">
+          <div class="content-header">
+            <h2 class="content-title">External Chat</h2>
+            <p class="content-subtitle">Connect your Telegram or Discord to chat with AGNT</p>
+          </div>
+          <div class="settings-grid">
+            <div class="settings-section full-width">
+              <ExternalChatSettings />
+            </div>
+          </div>
+        </div>
+
         <!-- Security Section -->
         <div v-else-if="activeSection === 'security'" class="settings-content" data-section="security">
           <div class="content-header">
@@ -264,6 +277,7 @@ import ProfileSection from './components/ProfileSection/ProfileSection.vue';
 import ReferralsSection from './components/ReferralsSection/ReferralsSection.vue';
 import LeaderboardSection from './components/LeaderboardSection/LeaderboardSection.vue';
 import TunnelSettings from './components/TunnelSettings/TunnelSettings.vue';
+import ExternalChatSettings from './components/ExternalChatSettings/ExternalChatSettings.vue';
 import { useSettingsTutorial } from './useTutorial.js';
 import PopupTutorial from '../../../../_components/utility/PopupTutorial.vue';
 
@@ -286,6 +300,7 @@ export default {
     ReferralsSection,
     LeaderboardSection,
     TunnelSettings,
+    ExternalChatSettings,
     PopupTutorial,
   },
   emits: ['screen-change', 'start-tour'],

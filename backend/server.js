@@ -1,4 +1,4 @@
-import 'dotenv/config';
+// dotenv loaded by main.js (passed via env in fork())
 import cors from 'cors';
 import express from 'express';
 import bodyParser from 'body-parser';
@@ -36,8 +36,11 @@ import PluginRoutes from './src/routes/PluginRoutes.js';
 import SkillRoutes from './src/routes/SkillRoutes.js';
 import TunnelRoutes from './src/routes/TunnelRoutes.js';
 import TunnelService from './src/services/TunnelService.js';
+import ExternalChatRoutes from './src/routes/ExternalChatRoutes.js';
+import ExternalChatService from './src/services/ExternalChatService.js';
 import WorkflowProcessBridge from './src/workflow/WorkflowProcessBridge.js';
 import { sessionMiddleware } from './src/routes/Middleware.js';
+import db from './src/models/database/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -125,6 +128,14 @@ app.use('/api/plugins', PluginRoutes);
 app.use('/api/skills', SkillRoutes);
 app.use('/api/tunnel', TunnelRoutes);
 app.get('/api/health', (req, res) => res.status(200).json({ status: 'OK' }));
+
+// External Chat routes - registered early with placeholder
+let externalChatService = null;
+// Register routes now (service will be set later)
+app.use('/api/external-chat', (req, res, next) => {
+  // Pass current service instance to routes
+  return ExternalChatRoutes(externalChatService)(req, res, next);
+});
 
 // Version endpoint - reads dynamically from package.json
 app.get('/api/version', (req, res) => {
@@ -300,6 +311,20 @@ function startServer() {
         console.error('Tunnel Service initialization error (non-fatal):', err);
       });
 
+      // Initialize External Chat Service (Telegram/Discord)
+      console.log('Initializing External Chat Service...');
+      try {
+        externalChatService = new ExternalChatService(db, io, null);
+        const externalChatInitialized = await externalChatService.initialize();
+        if (externalChatInitialized) {
+          console.log('✓ External Chat Service initialized');
+        } else {
+          console.log('External Chat Service disabled (no TELEGRAM_BOT_TOKEN configured)');
+        }
+      } catch (error) {
+        console.error('External Chat Service initialization error (non-fatal):', error);
+      }
+
       // Spawn workflow process AFTER plugins are ready
       console.log('Spawning workflow process...');
       try {
@@ -347,6 +372,11 @@ function startServer() {
       // Shutdown tunnel service
       TunnelService.shutdown();
 
+      // Shutdown External Chat Service
+      if (externalChatService) {
+        await externalChatService.shutdown();
+      }
+
       // Shutdown workflow process first
       await WorkflowProcessBridge.shutdown();
 
@@ -362,6 +392,11 @@ function startServer() {
 
       // Shutdown tunnel service
       TunnelService.shutdown();
+
+      // Shutdown External Chat Service
+      if (externalChatService) {
+        await externalChatService.shutdown();
+      }
 
       // Shutdown workflow process
       await WorkflowProcessBridge.shutdown();

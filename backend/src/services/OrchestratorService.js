@@ -1580,4 +1580,155 @@ function generateFrontendEvents(toolData, operationType) {
   return events;
 }
 
+/**
+ * Handle External Chat Messages (Telegram/Discord)
+ * Simplified version of universalChatHandler for external platforms
+ *
+ * @param {Object} options - Message options
+ * @param {string} options.userId - AGNT user ID
+ * @param {string} options.message - User message text
+ * @param {string} options.platform - Platform (telegram, discord)
+ * @param {string} options.externalId - External user ID
+ * @param {Function} options.onChunk - Callback for streaming chunks
+ * @returns {Promise<Object>} - Response result
+ */
+async function handleExternalChatMessage({ userId, message, platform, externalId, onChunk }) {
+  const conversationId = `external-${platform}-${externalId}`;
+
+  // Get user's default provider and model
+  let provider = 'Anthropic';
+  let model = 'claude-3-5-sonnet-20241022';
+
+  try {
+    const user = await new Promise((resolve, reject) => {
+      db.get('SELECT default_provider, default_model FROM users WHERE id = ?', [userId], (err, row) => {
+        if (err) reject(err);
+        else resolve(row);
+      });
+    });
+
+    if (user) {
+      provider = user.default_provider || provider;
+      model = user.default_model || model;
+    }
+  } catch (err) {
+    console.error('[ExternalChat] Error getting user settings:', err);
+  }
+
+  // Create LLM client
+  let client;
+  let adapter;
+
+  try {
+    client = await createLlmClient(provider, userId);
+    adapter = await createLlmAdapter(provider, client, model);
+  } catch (authError) {
+    console.error('[ExternalChat] Auth error:', authError);
+    if (onChunk) {
+      onChunk('Sorry, AI service is not configured. Please set up your API key in AGNT Settings.');
+    }
+    return { success: false, error: 'Auth failed' };
+  }
+
+  // Build conversation history from database
+  let conversationHistory = [];
+  try {
+    const existingLog = await ConversationLogModel.getByConversationId(conversationId);
+    if (existingLog && existingLog.full_history) {
+      const parsed = JSON.parse(existingLog.full_history);
+      // Keep last 20 messages for context
+      conversationHistory = parsed.slice(-20);
+    }
+  } catch (err) {
+    console.log('[ExternalChat] No existing conversation history');
+  }
+
+  // Build system prompt
+  const currentDate = new Date().toString();
+  const systemPrompt = `You are AGNT, a helpful AI assistant. You are chatting with a user via ${platform}.
+Current date: ${currentDate}
+
+Guidelines:
+- Be concise but helpful - this is a chat interface
+- Use simple markdown formatting (bold, italic, code)
+- Avoid very long responses - break into multiple messages if needed
+- Be friendly and conversational`;
+
+  // Build messages array
+  const messages = [
+    { role: 'system', content: systemPrompt },
+    ...conversationHistory.filter(m => m.role !== 'system'),
+    { role: 'user', content: message }
+  ];
+
+  let fullResponse = '';
+  let streamError = null;
+
+  try {
+    // Stream response
+    const stream = await adapter.createChatCompletionStream({
+      model,
+      messages,
+      stream: true,
+      max_tokens: 2000,
+    });
+
+    for await (const chunk of stream) {
+      const content = chunk.choices?.[0]?.delta?.content;
+      if (content) {
+        fullResponse += content;
+        if (onChunk) {
+          onChunk(content);
+        }
+      }
+    }
+  } catch (err) {
+    console.error('[ExternalChat] Stream error:', err);
+    streamError = err;
+
+    if (!fullResponse) {
+      const errorMessage = 'Sorry, I encountered an error processing your request. Please try again.';
+      if (onChunk) {
+        onChunk(errorMessage);
+      }
+      fullResponse = errorMessage;
+    }
+  }
+
+  // Save conversation to database
+  try {
+    const updatedHistory = [
+      ...conversationHistory,
+      { role: 'user', content: message },
+      { role: 'assistant', content: fullResponse }
+    ];
+
+    const logData = {
+      conversationId,
+      userId,
+      initial_prompt: message,
+      full_history: JSON.stringify(updatedHistory),
+      final_response: fullResponse,
+      tool_calls: null,
+      errors: streamError ? JSON.stringify({ message: streamError.message }) : null,
+    };
+
+    const existingLog = await ConversationLogModel.getByConversationId(conversationId);
+    if (existingLog) {
+      await ConversationLogModel.update(logData);
+    } else {
+      await ConversationLogModel.create(logData);
+    }
+  } catch (err) {
+    console.error('[ExternalChat] Error saving conversation:', err);
+  }
+
+  return {
+    success: !streamError,
+    response: fullResponse,
+    conversationId
+  };
+}
+
+export { handleExternalChatMessage };
 export default universalChatHandler;

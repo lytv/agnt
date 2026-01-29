@@ -252,6 +252,8 @@ function startBackend() {
       const envContent = fs.readFileSync(envPath);
       fileEnv = dotenv.parse(envContent);
       console.log('Successfully parsed .env file');
+      console.log('TELEGRAM_BOT_TOKEN in fileEnv:', fileEnv.TELEGRAM_BOT_TOKEN ? 'FOUND' : 'NOT FOUND');
+      console.log('Keys in fileEnv:', Object.keys(fileEnv).filter(k => k.includes('TELEGRAM')));
     } catch (err) {
       console.error('Failed to parse .env file:', err);
     }

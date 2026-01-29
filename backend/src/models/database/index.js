@@ -542,6 +542,78 @@ function createTables() {
 // Function to run migrations
 function runMigrations() {
   return new Promise((resolve, reject) => {
+    // ==================== ENABLE FOREIGN KEYS ====================
+    // CRITICAL: Must be enabled for CASCADE to work
+    db.run('PRAGMA foreign_keys = ON', (err) => {
+      if (err) {
+        console.error('CRITICAL: Failed to enable foreign keys:', err);
+      } else {
+        console.log('✓ Foreign keys enabled');
+      }
+    });
+
+    // ==================== EXTERNAL CHAT TABLES ====================
+    // External accounts - linked Telegram/Discord accounts
+    db.run(`CREATE TABLE IF NOT EXISTS external_accounts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id TEXT NOT NULL,
+      platform TEXT NOT NULL CHECK(platform IN ('telegram', 'discord')),
+      external_id TEXT NOT NULL,
+      external_username TEXT,
+      paired_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      last_message_at DATETIME,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`, (err) => {
+      if (err && !err.message.includes('already exists')) {
+        console.error('Error creating external_accounts table:', err);
+      }
+    });
+
+    // SECURITY: Prevent same Telegram account linking to multiple AGNT users
+    db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_external_accounts_platform_id
+      ON external_accounts(platform, external_id)`, (err) => {
+      if (err) console.error('Error creating idx_external_accounts_platform_id:', err);
+    });
+
+    // SECURITY: Enforce one Telegram account per AGNT user (v1 simplicity)
+    db.run(`CREATE UNIQUE INDEX IF NOT EXISTS idx_external_accounts_user_platform
+      ON external_accounts(user_id, platform)`, (err) => {
+      if (err) console.error('Error creating idx_external_accounts_user_platform:', err);
+    });
+
+    // Index for user lookups (unlink, list accounts)
+    db.run(`CREATE INDEX IF NOT EXISTS idx_external_accounts_user_id
+      ON external_accounts(user_id)`, (err) => {
+      if (err) console.error('Error creating idx_external_accounts_user_id:', err);
+    });
+
+    // Pairing codes - temporary codes for linking accounts
+    db.run(`CREATE TABLE IF NOT EXISTS pairing_codes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      code TEXT NOT NULL UNIQUE,
+      user_id TEXT NOT NULL,
+      created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+      expires_at DATETIME NOT NULL,
+      used INTEGER NOT NULL DEFAULT 0,
+      attempt_count INTEGER NOT NULL DEFAULT 0,
+      FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    )`, (err) => {
+      if (err && !err.message.includes('already exists')) {
+        console.error('Error creating pairing_codes table:', err);
+      }
+    });
+
+    db.run(`CREATE INDEX IF NOT EXISTS idx_pairing_codes_code ON pairing_codes(code)`, (err) => {
+      if (err) console.error('Error creating idx_pairing_codes_code:', err);
+    });
+
+    // Index for expired code cleanup
+    db.run(`CREATE INDEX IF NOT EXISTS idx_pairing_codes_expires ON pairing_codes(expires_at)`, (err) => {
+      if (err) console.error('Error creating idx_pairing_codes_expires:', err);
+    });
+
+    console.log('✓ External Chat tables migration complete');
+
     // Add assignedSkills column to agents table if it doesn't exist
     db.run(`ALTER TABLE agents ADD COLUMN assignedSkills TEXT`, (err) => {
       if (err && !err.message.includes('duplicate column name')) {

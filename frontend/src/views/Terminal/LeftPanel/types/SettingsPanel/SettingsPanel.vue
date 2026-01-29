@@ -43,6 +43,10 @@
             <i class="fas fa-bolt"></i>
             <span>Webhooks</span>
           </button>
+          <button class="nav-item" :class="{ active: activeSection === 'external-chat' }" @click="handleNavClick('external-chat')" data-nav="external-chat">
+            <i class="fab fa-telegram-plane"></i>
+            <span>External Chat</span>
+          </button>
         </div>
       </div>
 
