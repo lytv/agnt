@@ -20,12 +20,14 @@ export default function ExternalChatRoutes(externalChatService) {
   router.post('/pair', authenticateToken, async (req, res) => {
     try {
       const userId = req.user?.id || req.userId;
+      // Extract auth token from header to store for the bot
+      const authToken = req.headers.authorization;
 
       if (!userId) {
         return res.status(401).json({ error: 'User not authenticated' });
       }
 
-      const result = await externalChatService.generatePairingCode(userId);
+      const result = await externalChatService.generatePairingCode(userId, authToken);
 
       res.json({
         success: true,

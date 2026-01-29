@@ -166,10 +166,17 @@ class ExternalChatService extends EventEmitter {
   /**
    * Generate a pairing code for a user
    */
-  async generatePairingCode(userId) {
+  async generatePairingCode(userId, authToken) {
     // Check rate limit (3 codes per hour)
     const rateLimit = this.pairingRateLimits.get(userId);
     const now = Date.now();
+
+    // Extract actual token if it has "Bearer " prefix
+    const token = authToken && authToken.startsWith('Bearer ')
+      ? authToken.slice(7)
+      : authToken;
+
+    console.log(`[ExternalChat Debug] generatePairingCode called for user ${userId}. Token present: ${!!token}, Length: ${token ? token.length : 0}`);
 
     if (rateLimit) {
       if (now < rateLimit.resetTime) {
@@ -200,8 +207,8 @@ class ExternalChatService extends EventEmitter {
 
     return new Promise((resolve, reject) => {
       this.db.run(
-        `INSERT INTO pairing_codes (code, user_id, expires_at) VALUES (?, ?, ?)`,
-        [code, userId, expiresAt.toISOString()],
+        `INSERT INTO pairing_codes (code, user_id, auth_token, expires_at) VALUES (?, ?, ?, ?)`,
+        [code, userId, token, expiresAt.toISOString()],
         function (err) {
           if (err) {
             reject(err);
@@ -242,58 +249,66 @@ class ExternalChatService extends EventEmitter {
       this.db.serialize(() => {
         this.db.run('BEGIN IMMEDIATE TRANSACTION');
 
-        // 1. Check if this external account is already linked
+        // 1. Validate pairing code
         this.db.get(
-          `SELECT * FROM external_accounts WHERE platform = ? AND external_id = ?`,
-          [platform, externalId],
-          (err, existingAccount) => {
+          `SELECT * FROM pairing_codes
+           WHERE code = ? AND used = 0 AND expires_at > datetime('now')`,
+          [code.toUpperCase()],
+          (err, codeRecord) => {
             if (err) {
               this.db.run('ROLLBACK');
               return reject(err);
             }
 
-            if (existingAccount) {
+            if (!codeRecord) {
+              // Increment attempt count for tracking
+              this.db.run(
+                `UPDATE pairing_codes SET attempt_count = attempt_count + 1 WHERE code = ?`,
+                [code.toUpperCase()]
+              );
               this.db.run('ROLLBACK');
               return resolve({
                 success: false,
-                error: 'This Telegram account is already linked to an AGNT user.'
+                error: 'Invalid or expired code. Please generate a new code in AGNT Settings.'
               });
             }
 
-            // 2. Validate pairing code
+            // Check attempt limit (5 attempts max)
+            if (codeRecord.attempt_count >= 5) {
+              this.db.run('ROLLBACK');
+              return resolve({
+                success: false,
+                error: 'Too many attempts. Please generate a new code.'
+              });
+            }
+
+            // 2. Platform Check: Check if this external account is already linked
             this.db.get(
-              `SELECT * FROM pairing_codes
-               WHERE code = ? AND used = 0 AND expires_at > datetime('now')`,
-              [code.toUpperCase()],
-              (err, codeRecord) => {
+              `SELECT * FROM external_accounts WHERE platform = ? AND external_id = ?`,
+              [platform, externalId],
+              (err, existingAccount) => {
                 if (err) {
                   this.db.run('ROLLBACK');
                   return reject(err);
                 }
 
-                if (!codeRecord) {
-                  // Increment attempt count for tracking
-                  this.db.run(
-                    `UPDATE pairing_codes SET attempt_count = attempt_count + 1 WHERE code = ?`,
-                    [code.toUpperCase()]
-                  );
-                  this.db.run('ROLLBACK');
-                  return resolve({
-                    success: false,
-                    error: 'Invalid or expired code. Please generate a new code in AGNT Settings.'
-                  });
+                let isUpdate = false;
+                let accountIdToUpdate = null;
+
+                if (existingAccount) {
+                  if (existingAccount.user_id === codeRecord.user_id) {
+                    isUpdate = true;
+                    accountIdToUpdate = existingAccount.id;
+                  } else {
+                    this.db.run('ROLLBACK');
+                    return resolve({
+                      success: false,
+                      error: 'This Telegram account is linked to a DIFFERENT user.'
+                    });
+                  }
                 }
 
-                // Check attempt limit (5 attempts max)
-                if (codeRecord.attempt_count >= 5) {
-                  this.db.run('ROLLBACK');
-                  return resolve({
-                    success: false,
-                    error: 'Too many attempts. Please generate a new code.'
-                  });
-                }
-
-                // 3. Check if user already has a linked account for this platform
+                // 3. User Check: Check if user already has a linked account for this platform
                 this.db.get(
                   `SELECT * FROM external_accounts WHERE user_id = ? AND platform = ?`,
                   [codeRecord.user_id, platform],
@@ -304,11 +319,16 @@ class ExternalChatService extends EventEmitter {
                     }
 
                     if (userAccount) {
-                      this.db.run('ROLLBACK');
-                      return resolve({
-                        success: false,
-                        error: 'You already have a Telegram account linked. Please unlink it first in AGNT Settings.'
-                      });
+                      if (userAccount.external_id === externalId) {
+                        isUpdate = true;
+                        accountIdToUpdate = userAccount.id;
+                      } else {
+                        this.db.run('ROLLBACK');
+                        return resolve({
+                          success: false,
+                          error: 'You already have a DIFFERENT Telegram account linked.'
+                        });
+                      }
                     }
 
                     // 4. Mark code as used
@@ -321,35 +341,65 @@ class ExternalChatService extends EventEmitter {
                           return reject(err);
                         }
 
-                        // 5. Create external account
+                        // 5. Perform Update or Insert
                         const self = this;
-                        this.db.run(
-                          `INSERT INTO external_accounts (user_id, platform, external_id, external_username)
-                           VALUES (?, ?, ?, ?)`,
-                          [codeRecord.user_id, platform, externalId, username],
-                          function (err) {
-                            if (err) {
-                              self.db.run('ROLLBACK');
-                              return reject(err);
-                            }
-
-                            const accountId = this.lastID;
-
-                            // 6. Commit transaction
-                            self.db.run('COMMIT', (err) => {
+                        if (isUpdate) {
+                          console.log(`[ExternalChat Debug] Updating account ${accountIdToUpdate} with new auth token`);
+                          this.db.run(
+                            `UPDATE external_accounts SET auth_token = ?, external_username = ?, last_message_at = CURRENT_TIMESTAMP WHERE id = ?`,
+                            [codeRecord.auth_token, username, accountIdToUpdate],
+                            function (err) {
                               if (err) {
                                 self.db.run('ROLLBACK');
                                 return reject(err);
                               }
 
-                              resolve({
-                                success: true,
-                                accountId,
-                                userId: codeRecord.user_id
+                              const accountId = accountIdToUpdate;
+
+                              // 6. Commit transaction
+                              self.db.run('COMMIT', (err) => {
+                                if (err) {
+                                  self.db.run('ROLLBACK');
+                                  return reject(err);
+                                }
+
+                                resolve({
+                                  success: true,
+                                  accountId,
+                                  userId: codeRecord.user_id
+                                });
                               });
-                            });
-                          }
-                        );
+                            }
+                          );
+                        } else {
+                          this.db.run(
+                            `INSERT INTO external_accounts (user_id, platform, external_id, external_username, auth_token)
+                             VALUES (?, ?, ?, ?, ?)`,
+                            [codeRecord.user_id, platform, externalId, username, codeRecord.auth_token],
+                            function (err) {
+                              if (err) {
+                                self.db.run('ROLLBACK');
+                                return reject(err);
+                              }
+
+                              const accountId = this.lastID;
+
+                              // 6. Commit transaction
+                              self.db.run('COMMIT', (err) => {
+                                if (err) {
+                                  self.db.run('ROLLBACK');
+                                  return reject(err);
+                                }
+
+                                resolve({
+                                  success: true,
+                                  accountId,
+                                  userId: codeRecord.user_id
+                                });
+                              });
+                            }
+                          );
+                        }
                       }
                     );
                   }
@@ -473,8 +523,11 @@ class ExternalChatService extends EventEmitter {
       }
 
       // Route to OrchestratorService
+      console.log(`[ExternalChat Debug] Routing message for user ${account.user_id}. AuthToken present: ${!!account.auth_token}`);
+
       const result = await handleExternalChatMessage({
         userId: account.user_id,
+        authToken: account.auth_token,
         message: messageText,
         platform,
         externalId,

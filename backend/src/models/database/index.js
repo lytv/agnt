@@ -559,12 +559,20 @@ function runMigrations() {
       platform TEXT NOT NULL CHECK(platform IN ('telegram', 'discord')),
       external_id TEXT NOT NULL,
       external_username TEXT,
+      auth_token TEXT,
       paired_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       last_message_at DATETIME,
       FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
     )`, (err) => {
       if (err && !err.message.includes('already exists')) {
         console.error('Error creating external_accounts table:', err);
+      }
+    });
+
+    // Migration: Add auth_token to external_accounts if it doesn't exist
+    db.run(`ALTER TABLE external_accounts ADD COLUMN auth_token TEXT`, (err) => {
+      if (err && !err.message.includes('duplicate column name')) {
+        console.error('Error adding auth_token to external_accounts:', err);
       }
     });
 
@@ -591,6 +599,7 @@ function runMigrations() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       code TEXT NOT NULL UNIQUE,
       user_id TEXT NOT NULL,
+      auth_token TEXT,
       created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
       expires_at DATETIME NOT NULL,
       used INTEGER NOT NULL DEFAULT 0,
@@ -599,6 +608,13 @@ function runMigrations() {
     )`, (err) => {
       if (err && !err.message.includes('already exists')) {
         console.error('Error creating pairing_codes table:', err);
+      }
+    });
+
+    // Migration: Add auth_token to pairing_codes if it doesn't exist
+    db.run(`ALTER TABLE pairing_codes ADD COLUMN auth_token TEXT`, (err) => {
+      if (err && !err.message.includes('duplicate column name')) {
+        console.error('Error adding auth_token to pairing_codes:', err);
       }
     });
 

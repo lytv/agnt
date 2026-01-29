@@ -823,7 +823,7 @@ export const TOOLS = {
       { operation, workflow_description, available_tool_ids, workflow_definition, workflow_id, trigger_data, execution_id },
       authToken
     ) => {
-      console.log(`Tool call: agnt_workflows with operation: ${operation}`);
+      console.log(`[Debug Tool] agnt_workflows called. Operation: ${operation}, AuthToken Length: ${authToken ? authToken.length : 0}`);
 
       if (!authToken) {
         return JSON.stringify({ success: false, error: 'User authentication token is required for AGNT workflow operations.' });

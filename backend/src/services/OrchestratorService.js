@@ -1582,7 +1582,7 @@ function generateFrontendEvents(toolData, operationType) {
 
 /**
  * Handle External Chat Messages (Telegram/Discord)
- * Simplified version of universalChatHandler for external platforms
+ * Refactored to support tools, context management, and execution tracking
  *
  * @param {Object} options - Message options
  * @param {string} options.userId - AGNT user ID
@@ -1590,10 +1590,15 @@ function generateFrontendEvents(toolData, operationType) {
  * @param {string} options.platform - Platform (telegram, discord)
  * @param {string} options.externalId - External user ID
  * @param {Function} options.onChunk - Callback for streaming chunks
+ * @param {string} options.authToken - Optional auth token for tool execution
  * @returns {Promise<Object>} - Response result
  */
-async function handleExternalChatMessage({ userId, message, platform, externalId, onChunk }) {
+async function handleExternalChatMessage({ userId, message, platform, externalId, onChunk, authToken = null }) {
+  console.log(`[Orchestrator Debug] handleExternalChatMessage called. AuthToken present: ${!!authToken}`);
+
   const conversationId = `external-${platform}-${externalId}`;
+  const chatType = 'orchestrator';
+  const config = getChatConfig(chatType);
 
   // Get user's default provider and model
   let provider = 'Anthropic';
@@ -1615,109 +1620,230 @@ async function handleExternalChatMessage({ userId, message, platform, externalId
     console.error('[ExternalChat] Error getting user settings:', err);
   }
 
-  // Create LLM client
+  const normalizedProvider = provider.toLowerCase();
+
+  // Create LLM client and adapter
   let client;
   let adapter;
-
   try {
-    client = await createLlmClient(provider, userId);
-    adapter = await createLlmAdapter(provider, client, model);
+    client = await createLlmClient(normalizedProvider, userId);
+    adapter = await createLlmAdapter(normalizedProvider, client, model);
   } catch (authError) {
     console.error('[ExternalChat] Auth error:', authError);
-    if (onChunk) {
-      onChunk('Sorry, AI service is not configured. Please set up your API key in AGNT Settings.');
-    }
-    return { success: false, error: 'Auth failed' };
+    const errorMsg = `Sorry, AI service is not configured correctly. Please check your ${provider} API key in AGNT settings.`;
+    if (onChunk) onChunk(errorMsg);
+    return { success: false, error: 'Auth failed', response: errorMsg };
   }
 
-  // Build conversation history from database
-  let conversationHistory = [];
+  // Initialize conversation context
+  const conversationContext = {
+    preservedContent: {},
+    llmClient: client,
+    openai: normalizedProvider === 'openai' ? client : null,
+    userId,
+    provider,
+    model,
+  };
+
+  // Build conversation history
+  let messages = [];
   try {
     const existingLog = await ConversationLogModel.getByConversationId(conversationId);
     if (existingLog && existingLog.full_history) {
       const parsed = JSON.parse(existingLog.full_history);
-      // Keep last 20 messages for context
-      conversationHistory = parsed.slice(-20);
+      // Filter out system messages AND messages with invalid content (prevents 400 errors)
+      messages = parsed.filter(m =>
+        m.role !== 'system' &&
+        m.content !== undefined &&
+        m.content !== null
+      );
     }
   } catch (err) {
-    // No existing conversation history
+    console.warn('[ExternalChat] No previous history found or error parsing history');
   }
 
-  // Build system prompt
+  // Add new user message
+  messages.push({ role: 'user', content: message });
+
+  // Get tool schemas and build system prompt
+  const toolSchemas = await config.getToolSchemas(conversationContext);
   const currentDate = new Date().toString();
-  const systemPrompt = `You are AGNT, a helpful AI assistant. You are chatting with a user via ${platform}.
-Current date: ${currentDate}
+  const baseSystemPrompt = config.buildSystemPrompt(currentDate, { ...conversationContext, toolSchemas });
 
-Guidelines:
-- Be concise but helpful - this is a chat interface
-- Use simple markdown formatting (bold, italic, code)
-- Avoid very long responses - break into multiple messages if needed
-- Be friendly and conversational`;
+  const externalSystemPrompt = `${baseSystemPrompt}
 
-  // Build messages array
-  const messages = [
-    { role: 'system', content: systemPrompt },
-    ...conversationHistory.filter(m => m.role !== 'system'),
-    { role: 'user', content: message }
-  ];
+[PLATFORM CONTEXT]
+You are interacting with the user via ${platform.toUpperCase()}.
+- Be concise: Users on chat platforms prefer shorter, direct answers.
+- Formatting: Use standard markdown (bold, italic, code blocks).
+- Long content: If providing a very long response, try to summarize or break it up.`;
+
+  messages.unshift({ role: 'system', content: externalSystemPrompt });
+
+  // Apply context management
+  const contextResult = manageContext(messages, model, toolSchemas);
+  messages = contextResult.messages;
+
+  // Track execution
+  let agentExecutionId = null;
+  let toolCallsCount = 0;
+  try {
+    agentExecutionId = await AgentExecutionModel.create(
+      userId,
+      null,
+      `External (${platform})`,
+      conversationId,
+      message.substring(0, 500),
+      provider,
+      model
+    );
+    await AgentExecutionModel.updateStatus(agentExecutionId, 'running');
+  } catch (e) {
+    console.error('[ExternalChat] Failed to create execution record:', e);
+  }
 
   let fullResponse = '';
   let streamError = null;
+  const allToolCallsForLogging = [];
 
   try {
-    // Stream response
-    const onChunkCallback = (chunk) => {
-      if (chunk.type === 'content') {
-        const content = chunk.delta;
-        if (content) {
-          fullResponse += content;
-          if (onChunk) {
-            onChunk(content);
+    // Initial call
+    let { responseMessage, toolCalls } = await adapter.callStream(
+      messages,
+      toolSchemas,
+      (chunk) => {
+        if (chunk.type === 'content' && chunk.delta) {
+          fullResponse += chunk.delta;
+          if (onChunk) onChunk(chunk.delta);
+        }
+      },
+      conversationContext
+    );
+
+    messages.push(responseMessage);
+
+    // Tool execution loop
+    let currentRound = 0;
+    while (toolCalls && toolCalls.length > 0 && currentRound < config.maxToolRounds) {
+      currentRound++;
+      const toolResponses = [];
+
+      for (const toolCall of toolCalls) {
+        const functionName = toolCall.function.name;
+        let functionArgs;
+        try {
+          functionArgs = JSON.parse(toolCall.function.arguments);
+        } catch (e) {
+          toolResponses.push({ tool_call_id: toolCall.id, role: 'tool', name: functionName, content: JSON.stringify({ success: false, error: 'Invalid JSON arguments' }) });
+          continue;
+        }
+
+        let currentToolExecutionId = null;
+        if (agentExecutionId) {
+          currentToolExecutionId = await AgentExecutionModel.createToolExecution(agentExecutionId, functionName, toolCall.id, functionArgs);
+          toolCallsCount++;
+        }
+
+        try {
+          console.log(`[ExternalChat] Executing tool: ${functionName}`);
+          const rawResult = await executeTool(functionName, functionArgs, authToken, conversationContext);
+
+          toolResponses.push({
+            tool_call_id: toolCall.id,
+            role: 'tool',
+            name: functionName,
+            content: rawResult
+          });
+
+          if (currentToolExecutionId) {
+            let parsedResult;
+            try { parsedResult = JSON.parse(rawResult); } catch(e) { parsedResult = { raw: rawResult }; }
+            await AgentExecutionModel.updateToolExecution(currentToolExecutionId, 'completed', parsedResult, null, 0);
           }
+
+          allToolCallsForLogging.push({ name: functionName, args: functionArgs, success: true });
+        } catch (toolError) {
+          console.error(`[ExternalChat] Tool error (${functionName}):`, toolError);
+          toolResponses.push({
+            tool_call_id: toolCall.id,
+            role: 'tool',
+            name: functionName,
+            content: JSON.stringify({ success: false, error: toolError.message })
+          });
+
+          if (currentToolExecutionId) {
+            await AgentExecutionModel.updateToolExecution(currentToolExecutionId, 'failed', null, toolError.message, 0);
+          }
+          allToolCallsForLogging.push({ name: functionName, args: functionArgs, success: false, error: toolError.message });
         }
       }
-    };
 
-    await adapter.callStream(messages, [], onChunkCallback);
+      const formattedToolResponses = adapter.formatToolResults(toolResponses);
+      messages.push(...formattedToolResponses);
+
+      // Call LLM again with tool results
+      const nextResponse = await adapter.callStream(
+        messages,
+        toolSchemas,
+        (chunk) => {
+          if (chunk.type === 'content' && chunk.delta) {
+            fullResponse += chunk.delta;
+            if (onChunk) onChunk(chunk.delta);
+          }
+        },
+        conversationContext
+      );
+
+      responseMessage = nextResponse.responseMessage;
+      toolCalls = nextResponse.toolCalls;
+      messages.push(responseMessage);
+    }
+
   } catch (err) {
     console.error('[ExternalChat] Stream error:', err);
     streamError = err;
-
     if (!fullResponse) {
-      const errorMessage = `Sorry, I encountered an error: ${err.message || 'Unknown error'}. Please try again.`;
-      if (onChunk) {
-        onChunk(errorMessage);
+      fullResponse = `Sorry, I encountered an error: ${err.message || 'Unknown error'}. Please try again.`;
+      if (onChunk) onChunk(fullResponse);
+    }
+  } finally {
+    // Persist conversation
+    try {
+      const logData = {
+        conversationId,
+        userId,
+        initial_prompt: message,
+        full_history: JSON.stringify(messages),
+        final_response: fullResponse,
+        tool_calls: JSON.stringify(allToolCallsForLogging),
+        errors: streamError ? JSON.stringify({ message: streamError.message }) : null,
+      };
+
+      const existingLog = await ConversationLogModel.getByConversationId(conversationId);
+      if (existingLog) {
+        await ConversationLogModel.update(logData);
+      } else {
+        await ConversationLogModel.create(logData);
       }
-      fullResponse = errorMessage;
+    } catch (saveError) {
+      console.error('[ExternalChat] Error saving log:', saveError);
     }
-  }
 
-  // Save conversation to database
-  try {
-    const updatedHistory = [
-      ...conversationHistory,
-      { role: 'user', content: message },
-      { role: 'assistant', content: fullResponse }
-    ];
-
-    const logData = {
-      conversationId,
-      userId,
-      initial_prompt: message,
-      full_history: JSON.stringify(updatedHistory),
-      final_response: fullResponse,
-      tool_calls: null,
-      errors: streamError ? JSON.stringify({ message: streamError.message }) : null,
-    };
-
-    const existingLog = await ConversationLogModel.getByConversationId(conversationId);
-    if (existingLog) {
-      await ConversationLogModel.update(logData);
-    } else {
-      await ConversationLogModel.create(logData);
+    // Finalize execution tracking
+    if (agentExecutionId) {
+      try {
+        await AgentExecutionModel.update(
+          agentExecutionId,
+          streamError ? 'failed' : 'completed',
+          fullResponse.substring(0, 2000),
+          0,
+          toolCallsCount,
+          streamError ? streamError.message : null
+        );
+      } catch (execError) {
+        console.error('[ExternalChat] Error finalizing execution:', execError);
+      }
     }
-  } catch (err) {
-    console.error('[ExternalChat] Error saving conversation:', err);
   }
 
   return {
