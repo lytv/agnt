@@ -1,7 +1,6 @@
 import sqlite3 from 'sqlite3';
 import path from 'path';
 import fs from 'fs';
-import WebhookModel from '../WebhookModel.js';
 
 // Get user data path - prioritize USER_DATA_PATH env var (set by Electron)
 const getUserDataPath = () => {
@@ -694,16 +693,6 @@ createTables()
   })
   .then(() => {
     console.log('All migrations completed successfully');
-  })
-  .then(async () => {
-    console.log('Database initialization complete');
-
-    // Sync webhooks from existing workflows
-    try {
-      await WebhookModel.syncFromWorkflows();
-    } catch (error) {
-      console.error('Error syncing webhooks:', error);
-    }
   })
   .catch((error) => {
     console.error('Error creating tables or running migrations:', error);

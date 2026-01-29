@@ -322,22 +322,23 @@ class ExternalChatService extends EventEmitter {
                         }
 
                         // 5. Create external account
+                        const self = this;
                         this.db.run(
                           `INSERT INTO external_accounts (user_id, platform, external_id, external_username)
                            VALUES (?, ?, ?, ?)`,
                           [codeRecord.user_id, platform, externalId, username],
                           function (err) {
                             if (err) {
-                              this.db.run('ROLLBACK');
+                              self.db.run('ROLLBACK');
                               return reject(err);
                             }
 
                             const accountId = this.lastID;
 
                             // 6. Commit transaction
-                            this.db.run('COMMIT', (err) => {
+                            self.db.run('COMMIT', (err) => {
                               if (err) {
-                                this.db.run('ROLLBACK');
+                                self.db.run('ROLLBACK');
                                 return reject(err);
                               }
 

@@ -41,6 +41,7 @@ import ExternalChatService from './src/services/ExternalChatService.js';
 import WorkflowProcessBridge from './src/workflow/WorkflowProcessBridge.js';
 import { sessionMiddleware } from './src/routes/Middleware.js';
 import db from './src/models/database/index.js';
+import WebhookModel from './src/models/WebhookModel.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -323,6 +324,13 @@ function startServer() {
         }
       } catch (error) {
         console.error('External Chat Service initialization error (non-fatal):', error);
+      }
+
+      // Sync webhooks from existing workflows
+      try {
+        await WebhookModel.syncFromWorkflows();
+      } catch (error) {
+        console.error('Error syncing webhooks:', error);
       }
 
       // Spawn workflow process AFTER plugins are ready

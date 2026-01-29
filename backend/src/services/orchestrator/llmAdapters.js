@@ -298,6 +298,13 @@ Please carefully check the tool schema and ensure all parameters match the expec
   }
 
   /**
+   * Direct wrapper for OpenAI's createChatCompletionStream for compatibility
+   */
+  async createChatCompletionStream(options) {
+    return await this.client.chat.completions.create(options);
+  }
+
+  /**
    * Makes a streaming call to the LLM with real-time token updates.
    * @param {Array<Object>} messages The conversation history.
    * @param {Array<Object>} tools The available tools in OpenAI format.

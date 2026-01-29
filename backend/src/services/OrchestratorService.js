@@ -1640,7 +1640,7 @@ async function handleExternalChatMessage({ userId, message, platform, externalId
       conversationHistory = parsed.slice(-20);
     }
   } catch (err) {
-    console.log('[ExternalChat] No existing conversation history');
+    // No existing conversation history
   }
 
   // Build system prompt
@@ -1666,28 +1666,25 @@ Guidelines:
 
   try {
     // Stream response
-    const stream = await adapter.createChatCompletionStream({
-      model,
-      messages,
-      stream: true,
-      max_tokens: 2000,
-    });
-
-    for await (const chunk of stream) {
-      const content = chunk.choices?.[0]?.delta?.content;
-      if (content) {
-        fullResponse += content;
-        if (onChunk) {
-          onChunk(content);
+    const onChunkCallback = (chunk) => {
+      if (chunk.type === 'content') {
+        const content = chunk.delta;
+        if (content) {
+          fullResponse += content;
+          if (onChunk) {
+            onChunk(content);
+          }
         }
       }
-    }
+    };
+
+    await adapter.callStream(messages, [], onChunkCallback);
   } catch (err) {
     console.error('[ExternalChat] Stream error:', err);
     streamError = err;
 
     if (!fullResponse) {
-      const errorMessage = 'Sorry, I encountered an error processing your request. Please try again.';
+      const errorMessage = `Sorry, I encountered an error: ${err.message || 'Unknown error'}. Please try again.`;
       if (onChunk) {
         onChunk(errorMessage);
       }

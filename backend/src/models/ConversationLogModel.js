@@ -25,6 +25,24 @@ class ConversationLogModel {
   }
 
   /**
+   * Retrieves a conversation log by its ID.
+   * @param {string} conversationId
+   * @returns {Promise<object|null>}
+   */
+  static async getByConversationId(conversationId) {
+    const query = `SELECT * FROM conversation_logs WHERE conversation_id = ?`;
+    return new Promise((resolve, reject) => {
+      db.get(query, [conversationId], (err, row) => {
+        if (err) {
+          console.error('Error fetching conversation log:', err);
+          return reject(err);
+        }
+        resolve(row);
+      });
+    });
+  }
+
+  /**
    * Updates an existing conversation record.
    * @param {object} logData
    * @returns {Promise<{conversationId: string, updated: boolean}>}
